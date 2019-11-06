@@ -1,1 +1,11 @@
 include ':app'
+
+// Just for dev. Define module ':protoo-client' directory.
+// TODO: replace with maven repositories.
+include ':protoo-client'
+project(':protoo-client').projectDir = new File(settingsDir, '../protoo-client-android/protoo-client')
+
+// Just for dev. Define module ':mediasoup-client' directory.
+// TODO: replace with maven repositories.
+include ':mediasoup-client'
+project(':mediasoup-client').projectDir = new File(settingsDir, '../mediasoup-client-android/mediasoup-client')
