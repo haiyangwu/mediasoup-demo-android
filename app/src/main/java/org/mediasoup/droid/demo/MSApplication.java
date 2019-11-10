@@ -11,7 +11,7 @@ public class MSApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        Logger.setLogLevel(Logger.LogLevel.LOG_DEBUG);
+        Logger.setLogLevel(Logger.LogLevel.LOG_TRACE);
         Logger.setDefaultHandler();
         MediasoupClient.initialize(getApplicationContext());
     }
