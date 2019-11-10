@@ -132,8 +132,8 @@ public class PeerConnectionUtils {
     }
     final String[] deviceNames = cameraEnumerator.getDeviceNames();
     for (String deviceName : deviceNames) {
-      // Get the front camera for now
-      if (cameraEnumerator.isFrontFacing(deviceName)) {
+      // In simulator, Get the back camera for now
+      if (!cameraEnumerator.isFrontFacing(deviceName)) {
         mCamCapture =
             cameraEnumerator.createCapturer(
                 deviceName,

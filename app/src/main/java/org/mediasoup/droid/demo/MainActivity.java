@@ -26,13 +26,14 @@ public class MainActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
-    roomId = "poqscfd6";//getRandomString(8);
+    roomId = getRandomString(8);
     peerId = getRandomString(8);
     displayName = getRandomString(8);
     checkPermission();
 
-    ((TextView) findViewById(R.id.room_info))
-        .setText(getString(R.string.room_info, roomId, peerId));
+    String roomInfo = getString(R.string.room_info, roomId, peerId);
+    Logger.d(TAG, "roomInfo: " + roomInfo);
+    ((TextView) findViewById(R.id.room_info)).setText(roomInfo);
 
     findViewById(R.id.enable_mic)
         .setOnClickListener(
