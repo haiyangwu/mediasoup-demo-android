@@ -3,6 +3,7 @@ package org.mediasoup.droid.demo;
 import android.Manifest;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
+import android.widget.TextView;
 
 import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
@@ -29,6 +30,24 @@ public class MainActivity extends AppCompatActivity {
     peerId = getRandomString(8);
     displayName = getRandomString(8);
     checkPermission();
+
+    ((TextView) findViewById(R.id.room_info))
+        .setText(getString(R.string.room_info, roomId, peerId));
+
+    findViewById(R.id.enable_mic)
+        .setOnClickListener(
+            v -> {
+              if (roomClient != null) {
+                roomClient.enableMic(MainActivity.this);
+              }
+            });
+    findViewById(R.id.enable_cam)
+        .setOnClickListener(
+            v -> {
+              if (roomClient != null) {
+                roomClient.enableCam(MainActivity.this);
+              }
+            });
   }
 
   private PermissionHandler permissionHandler =
