@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">mediasoup-demo-android</string>
+    <string name="room_info">"roomId: %1$s, peerId: %2$s"</string>
 </resources>

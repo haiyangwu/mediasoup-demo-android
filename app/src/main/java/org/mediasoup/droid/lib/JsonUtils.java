@@ -1,5 +1,7 @@
 package org.mediasoup.droid.lib;
 
+import android.support.annotation.NonNull;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -13,12 +15,13 @@ public class JsonUtils {
     }
   }
 
+  @NonNull
   public static JSONObject toJsonObject(String data) {
     try {
       return new JSONObject(data);
     } catch (JSONException e) {
       e.printStackTrace();
-      return null;
+      return new JSONObject();
     }
   }
 }

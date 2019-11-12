@@ -9,16 +9,19 @@ import android.support.annotation.NonNull;
 import android.support.annotation.WorkerThread;
 
 import org.json.JSONObject;
+import org.mediasoup.droid.Consumer;
 import org.mediasoup.droid.Device;
 import org.mediasoup.droid.Logger;
+import org.mediasoup.droid.RecvTransport;
 import org.mediasoup.droid.SendTransport;
 import org.mediasoup.droid.Transport;
 import org.protoojs.droid.Message;
-import org.protoojs.droid.Peer;
-import org.protoojs.droid.transports.WebSocketTransport;
+import org.mediasoup.droid.lib.socket.WebSocketTransport;
 import org.webrtc.AudioTrack;
 import org.webrtc.VideoTrack;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 
 import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
@@ -28,18 +31,41 @@ public class RoomClient {
 
   private static final String TAG = "RoomClient";
 
-  private String roomId;
-  private String peerId;
+  public enum RoomState {
+    CONNECTING,
+    CONNECTED,
+    CLOSED,
+  }
+
+  // Closed flag.
+  private boolean closed;
+  // TODO (HaiyangWu): add ConfigBuilder
+  // Device info.
   private String device;
+  // Display name.
   private String displayName;
+  // Whether we want to force RTC over TCP.
+  private boolean forceTcp = false;
+  // Whether we want to produce audio/video.
+  private boolean produce = true;
+  // Whether we should consume.
+  private boolean consume = true;
+  // Whether we want DataChannels.
+  private boolean useDataChannel;
+  // Next expected dataChannel test number.
+  private long nextDataChannelTestNumber;
 
   private String protooUrl;
   private Peer protoo;
 
   private Device mediasoupDevice;
   private SendTransport sendTransport;
-  private AudioTrack audioTrack;
-  private VideoTrack videoTrack;
+  private RecvTransport recvTransport;
+
+  private AudioTrack localAudioTrack;
+  private VideoTrack localVideoTrack;
+
+  private Map<String, Consumer> consumers;
 
   private Handler workHandler;
 
@@ -49,20 +75,23 @@ public class RoomClient {
 
   public RoomClient(
       String roomId, String peerId, String displayName, boolean forceH264, boolean forceVP9) {
-    this.roomId = roomId;
-    this.peerId = peerId;
     this.displayName = displayName;
+    this.closed = false;
+    this.consumers = new ConcurrentHashMap<>();
     this.protooUrl = UrlFactory.getProtooUrl(roomId, peerId, forceH264, forceVP9);
+
+    // for selfSigned.
+    UrlFactory.enableSelfSignedHttpClient();
+
     HandlerThread handlerThread = new HandlerThread("worker");
     handlerThread.start();
-
-    UrlFactory.enableSelfSignedHttpClient();
     workHandler = new Handler(handlerThread.getLooper());
   }
 
   @MainThread
   public void join() {
     Logger.d(TAG, "join() " + this.protooUrl);
+
     WebSocketTransport transport = new WebSocketTransport(protooUrl);
     protoo = new Peer(transport, peerListener);
   }
@@ -81,9 +110,9 @@ public class RoomClient {
       Logger.w(TAG, "enableMic() | sendTransport doesn't ready");
       return;
     }
-    if (audioTrack == null) {
-      audioTrack = PeerConnectionUtils.createAudioTrack(context, "mic");
-      audioTrack.setEnabled(true);
+    if (localAudioTrack == null) {
+      localAudioTrack = PeerConnectionUtils.createAudioTrack(context, "mic");
+      localAudioTrack.setEnabled(true);
     }
     workHandler.post(this::enableMicImpl);
   }
@@ -102,9 +131,9 @@ public class RoomClient {
       Logger.w(TAG, "enableCam() | sendTransport doesn't ready");
       return;
     }
-    if (videoTrack == null) {
-      videoTrack = PeerConnectionUtils.createVideoTrack(context, "cam");
-      videoTrack.setEnabled(true);
+    if (localVideoTrack == null) {
+      localVideoTrack = PeerConnectionUtils.createVideoTrack(context, "cam");
+      localVideoTrack.setEnabled(true);
     }
     workHandler.post(this::enableCameraImpl);
   }
@@ -115,7 +144,7 @@ public class RoomClient {
         producer -> {
           Logger.w(TAG, "onTransportClose()");
         },
-        audioTrack,
+        localAudioTrack,
         null,
         null);
   }
@@ -126,15 +155,27 @@ public class RoomClient {
         producer -> {
           Logger.w(TAG, "onTransportClose()");
         },
-        videoTrack,
+        localVideoTrack,
         null,
         null);
   }
 
   @MainThread
   public void close() {
+    if (this.closed) {
+      return;
+    }
+    this.closed = true;
+    Logger.d(TAG, "close()");
+    // Close protoo Peer
     if (protoo != null) {
       protoo.close();
+    }
+    if (sendTransport != null) {
+      sendTransport.close();
+    }
+    if (recvTransport != null) {
+      recvTransport.close();
     }
     if (mediasoupDevice != null) {
       mediasoupDevice.dispose();
@@ -151,25 +192,51 @@ public class RoomClient {
         }
 
         @Override
-        public void onFail() {}
+        public void onFail() {
+          // TODO (HaiyangWu): notify state
+        }
 
         @Override
         public void onRequest(
             @NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
           Logger.d(TAG, "onRequest() " + request.getData().toString());
+          handleRequest(request, handler);
         }
 
         @Override
         public void onNotification(@NonNull Message.Notification notification) {
           Logger.d(TAG, "onNotification() " + notification.getData().toString());
+          handleNotification(notification);
         }
 
         @Override
-        public void onDisconnected() {}
+        public void onDisconnected() {
+          // TODO (HaiyangWu): notify state
+        }
 
         @Override
-        public void onClose() {}
+        public void onClose() {
+          // TODO (HaiyangWu): notify state
+        }
       };
+
+  private void handleRequest(Message.Request request, Peer.ServerRequestHandler handler) {
+    // TODO (HaiyangWu): handle request msg
+    switch (request.getMethod()) {
+      case "newConsumer":
+        {
+          break;
+        }
+      case "newDataConsumer":
+        {
+          break;
+        }
+    }
+  }
+
+  private void handleNotification(Message.Notification notification) {
+    // TODO (HaiyangWu): handle notification msg
+  }
 
   @WorkerThread
   private void joinImpl() {
@@ -183,25 +250,30 @@ public class RoomClient {
             })
         .flatMap(
             rtpCapabilities -> {
-              JSONObject device = new JSONObject();
-              jsonPut(device, "flag", "android");
-              jsonPut(device, "name", "Android " + Build.DEVICE);
-              jsonPut(device, "version", Build.VERSION.CODENAME);
+              JSONObject deviceInfo = new JSONObject();
+              jsonPut(deviceInfo, "flag", "android");
+              jsonPut(deviceInfo, "name", "Android " + Build.DEVICE);
+              jsonPut(deviceInfo, "version", Build.VERSION.CODENAME);
 
               JSONObject request = new JSONObject();
               jsonPut(request, "displayName", displayName);
-              jsonPut(request, "device", device);
+              jsonPut(request, "device", deviceInfo);
               jsonPut(request, "rtpCapabilities", toJsonObject(rtpCapabilities));
-              // TODO(haiyangwu): add sctpCapabilities
+              // TODO (HaiyangWu): add sctpCapabilities
               jsonPut(request, "sctpCapabilities", "");
               return protoo.request("join", request);
             })
-        .doOnError(Throwable::printStackTrace)
+        .doOnError(t -> doOnError("_joinRoom() failed", t))
         .subscribe(
             peers -> {
               Logger.d(TAG, "peers: " + peers);
-              // TODO(haiyangwu): notify peers.
-              workHandler.post(this::createSendTransport);
+              // TODO (HaiyangWu): notify peers
+              if (produce) {
+                workHandler.post(this::createSendTransport);
+              }
+              if (consume) {
+                workHandler.post(this::createRecvTransport);
+              }
             });
   }
 
@@ -209,7 +281,7 @@ public class RoomClient {
   private void createSendTransport() {
     Logger.d(TAG, "createSendTransport()");
     JSONObject request = new JSONObject();
-    jsonPut(request, "forceTcp", false);
+    jsonPut(request, "forceTcp", forceTcp);
     jsonPut(request, "producing", true);
     jsonPut(request, "consuming", false);
     jsonPut(request, "sctpCapabilities", "");
@@ -217,12 +289,13 @@ public class RoomClient {
     protoo
         .request("createWebRtcTransport", request)
         .map(JSONObject::new)
-        .doOnError(Throwable::printStackTrace)
-        .subscribe(info -> workHandler.post(() -> createSendTransport(info)));
+        .doOnError(t -> doOnError("createWebRtcTransport for sendTransport failed", t))
+        .subscribe(info -> workHandler.post(() -> createLocalSendTransport(info)));
   }
 
   @WorkerThread
-  private void createSendTransport(JSONObject transportInfo) {
+  private void createLocalSendTransport(JSONObject transportInfo) {
+    Logger.d(TAG, "createLocalSendTransport() " + transportInfo);
     String id = transportInfo.optString("id");
     String iceParameters = transportInfo.optString("iceParameters");
     String iceCandidates = transportInfo.optString("iceCandidates");
@@ -234,12 +307,45 @@ public class RoomClient {
             sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
   }
 
+  @WorkerThread
+  private void createRecvTransport() {
+    Logger.d(TAG, "createRecvTransport()");
+    JSONObject request = new JSONObject();
+    jsonPut(request, "forceTcp", forceTcp);
+    jsonPut(request, "producing", false);
+    jsonPut(request, "consuming", true);
+    jsonPut(request, "sctpCapabilities", "");
+
+    protoo
+        .request("createWebRtcTransport", request)
+        .map(JSONObject::new)
+        .doOnError(t -> doOnError("createWebRtcTransport for recvTransport failed", t))
+        .subscribe(info -> workHandler.post(() -> createLocalRecvTransport(info)));
+  }
+
+  @WorkerThread
+  private void createLocalRecvTransport(JSONObject transportInfo) {
+    Logger.d(TAG, "createLocalRecvTransport() " + transportInfo);
+    String id = transportInfo.optString("id");
+    String iceParameters = transportInfo.optString("iceParameters");
+    String iceCandidates = transportInfo.optString("iceCandidates");
+    String dtlsParameters = transportInfo.optString("dtlsParameters");
+    String sctpParameters = transportInfo.optString("sctpParameters");
+
+    recvTransport =
+        mediasoupDevice.createRecvTransport(
+            recvTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
+  }
+
   private SendTransport.Listener sendTransportListener =
       new SendTransport.Listener() {
+
+        private String listenerTAG = TAG + "_SendTrans";
+
         @Override
         public String onProduce(
             Transport transport, String kind, String rtpParameters, String appData) {
-          Logger.d(TAG, "onProduce() ");
+          Logger.d(listenerTAG, "onProduce() ");
 
           JSONObject request = new JSONObject();
           jsonPut(request, "transportId", transport.getId());
@@ -247,43 +353,68 @@ public class RoomClient {
           jsonPut(request, "rtpParameters", toJsonObject(rtpParameters));
           jsonPut(request, "appData", appData);
 
-          Logger.d(TAG, "send produce request with " + request.toString());
+          Logger.d(listenerTAG, "send produce request with " + request.toString());
           String producerId = fetchProduceId(request);
-          Logger.d(TAG, "producerId: " + producerId);
+          Logger.d(listenerTAG, "producerId: " + producerId);
           return producerId;
         }
 
         @Override
         public void onConnect(Transport transport, String dtlsParameters) {
-          Logger.d(TAG, "onConnect()");
+          Logger.d(listenerTAG + "_send", "onConnect()");
           JSONObject request = new JSONObject();
           jsonPut(request, "transportId", transport.getId());
           jsonPut(request, "dtlsParameters", toJsonObject(dtlsParameters));
           protoo
               .request("connectWebRtcTransport", request)
+              // TODO (HaiyangWu): handle error
+              .doOnError(t -> doOnError("connectWebRtcTransport for sendTransport failed", t))
               .subscribe(
                   data -> {
-                    Logger.d(TAG, "connectWebRtcTransport res: " + data);
+                    Logger.d(listenerTAG, "connectWebRtcTransport res: " + data);
                   });
         }
 
         @Override
         public void onConnectionStateChange(Transport transport, String connectionState) {
-          Logger.d(TAG, "onConnectionStateChange: " + connectionState);
+          Logger.d(listenerTAG, "onConnectionStateChange: " + connectionState);
+        }
+      };
+
+  private RecvTransport.Listener recvTransportListener =
+      new RecvTransport.Listener() {
+
+        private String listenerTAG = TAG + "_RecvTrans";
+
+        @Override
+        public void onConnect(Transport transport, String dtlsParameters) {
+          Logger.d(listenerTAG, "onConnect()");
+          JSONObject request = new JSONObject();
+          jsonPut(request, "transportId", transport.getId());
+          jsonPut(request, "dtlsParameters", toJsonObject(dtlsParameters));
+          protoo
+              .request("connectWebRtcTransport", request)
+              // TODO (HaiyangWu): handle error
+              .doOnError(t -> doOnError("connectWebRtcTransport for recvTransport failed", t))
+              .subscribe(
+                  data -> {
+                    Logger.d(listenerTAG, "connectWebRtcTransport res: " + data);
+                  });
+        }
+
+        @Override
+        public void onConnectionStateChange(Transport transport, String connectionState) {
+          Logger.d(listenerTAG, "onConnectionStateChange: " + connectionState);
         }
       };
 
   private String fetchProduceId(JSONObject request) {
-    // TODO: opt
     StringBuffer result = new StringBuffer();
     CountDownLatch countDownLatch = new CountDownLatch(1);
     protoo
         .request("produce", request)
-        .map(
-            data -> {
-              Logger.d(TAG, "produce result" + data);
-              return toJsonObject(data).optString("id");
-            })
+        .map(data -> toJsonObject(data).optString("id"))
+        .doOnError(e -> doOnError("send produce request failed", e))
         .subscribe(
             id -> {
               result.append(id);
@@ -295,5 +426,9 @@ public class RoomClient {
       e.printStackTrace();
     }
     return result.toString();
+  }
+
+  private void doOnError(String message, Throwable t) {
+    Logger.e(TAG, message, t);
   }
 }

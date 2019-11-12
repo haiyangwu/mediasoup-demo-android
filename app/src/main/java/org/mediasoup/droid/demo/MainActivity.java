@@ -20,6 +20,7 @@ public class MainActivity extends AppCompatActivity {
   private String peerId;
   private String displayName;
   private RoomClient roomClient;
+  private TextView roomState;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
     String roomInfo = getString(R.string.room_info, roomId, peerId);
     Logger.d(TAG, "roomInfo: " + roomInfo);
     ((TextView) findViewById(R.id.room_info)).setText(roomInfo);
+    roomState = findViewById(R.id.room_state);
 
     findViewById(R.id.enable_mic)
         .setOnClickListener(
