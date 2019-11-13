@@ -2,14 +2,21 @@ package org.mediasoup.droid.demo;
 
 import android.Manifest;
 import android.os.Bundle;
+
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProviders;
+
 import android.widget.TextView;
 
 import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
 
 import org.mediasoup.droid.Logger;
+import org.mediasoup.droid.demo.vm.Room;
 import org.mediasoup.droid.lib.RoomClient;
+import org.mediasoup.droid.lib.lv.RoomRepository;
+import org.mediasoup.droid.lib.model.RoomInfo;
 
 import static org.mediasoup.droid.lib.Utils.getRandomString;
 
@@ -27,10 +34,11 @@ public class MainActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
+    // TODO(HaiyangWU): load from setting activity.
     roomId = getRandomString(8);
     peerId = getRandomString(8);
     displayName = getRandomString(8);
-    checkPermission();
+    roomClient = new RoomClient(roomId, peerId, displayName);
 
     String roomInfo = getString(R.string.room_info, roomId, peerId);
     Logger.d(TAG, "roomInfo: " + roomInfo);
@@ -51,6 +59,20 @@ public class MainActivity extends AppCompatActivity {
                 roomClient.enableCam(MainActivity.this);
               }
             });
+
+    initViewModel();
+    checkPermission();
+  }
+
+  private void initViewModel() {
+    RoomRepository roomRepository = roomClient.getRoomRepository();
+    final Observer<RoomInfo> roomInfoObserver =
+        info -> roomState.setText(info.getState().name().toLowerCase());
+    roomRepository.getRoomInfo().observe(this, roomInfoObserver);
+
+    // TODO(HaiyangWu): use view model.
+//    Room room = ViewModelProviders.of(this).get(Room.class);
+//    room.getRoomInfo().observe(this, roomInfoObserver);
   }
 
   private PermissionHandler permissionHandler =
@@ -58,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onGranted() {
           Logger.d(TAG, "permission granted");
-          roomClient = new RoomClient(roomId, peerId, displayName);
           roomClient.join();
         }
       };

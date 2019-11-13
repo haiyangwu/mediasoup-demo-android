@@ -2,6 +2,7 @@ package org.mediasoup.droid.lib;
 
 import androidx.annotation.NonNull;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -22,6 +23,16 @@ public class JsonUtils {
     } catch (JSONException e) {
       e.printStackTrace();
       return new JSONObject();
+    }
+  }
+
+  @NonNull
+  public static JSONArray toJsonArray(String data) {
+    try {
+      return new JSONArray(data);
+    } catch (JSONException e) {
+      e.printStackTrace();
+      return new JSONArray();
     }
   }
 }

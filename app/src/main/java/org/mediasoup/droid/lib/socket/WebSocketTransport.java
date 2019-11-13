@@ -34,7 +34,7 @@ public class WebSocketTransport extends AbsWebSocketTransport implements IWebSoc
     super(url);
     if (options == null) {
       mOptions = new WebSocketOptions();
-      mOptions.setReconnectInterval(10);
+      mOptions.setReconnectInterval(100);
     } else {
       mOptions = options;
     }
