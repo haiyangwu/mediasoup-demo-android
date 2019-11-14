@@ -17,6 +17,21 @@ public class RoomRepository {
       new SupplierMutableLiveData<>(RemotePeers::new);
   private SupplierMutableLiveData<Me> me = new SupplierMutableLiveData<>(Me::new);
 
+  private static RoomRepository instance;
+
+  public static RoomRepository getInstance() {
+    if (instance == null) {
+      synchronized (RoomRepository.class) {
+        if (instance == null) {
+          instance = new RoomRepository();
+        }
+      }
+    }
+    return instance;
+  }
+
+  private RoomRepository() {}
+
   public SupplierMutableLiveData<RoomInfo> getRoomInfo() {
     return roomInfo;
   }

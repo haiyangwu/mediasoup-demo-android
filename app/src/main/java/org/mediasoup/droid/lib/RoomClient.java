@@ -141,7 +141,7 @@ public class RoomClient {
     this.consumers = new ConcurrentHashMap<>();
     this.protooUrl = UrlFactory.getProtooUrl(roomId, peerId, forceH264, forceVP9);
     this.consumers = new HashMap<>();
-    this.roomRepository = new RoomRepository();
+    this.roomRepository = RoomRepository.getInstance();
 
     // support for selfSigned cert.
     UrlFactory.enableSelfSignedHttpClient();
@@ -150,11 +150,6 @@ public class RoomClient {
     HandlerThread handlerThread = new HandlerThread("worker");
     handlerThread.start();
     workHandler = new Handler(handlerThread.getLooper());
-  }
-
-  @NonNull
-  public RoomRepository getRoomRepository() {
-    return roomRepository;
   }
 
   @MainThread

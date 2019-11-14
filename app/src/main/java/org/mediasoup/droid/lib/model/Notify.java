@@ -27,6 +27,10 @@ public class Notify {
     }
   }
 
+  public String getId() {
+    return id;
+  }
+
   public String getType() {
     return type;
   }
