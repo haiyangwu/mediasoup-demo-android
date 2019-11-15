@@ -1,7 +1,6 @@
 package org.mediasoup.droid.demo;
 
 import android.Manifest;
-import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -14,6 +13,7 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
@@ -122,7 +122,8 @@ public class RoomActivity extends AppCompatActivity {
   public boolean onOptionsItemSelected(MenuItem item) {
     // Handle item selection
     if (item.getItemId() == R.id.setting) {
-      startActivity(new Intent(this, SettingsActivity.class));
+      // startActivity(new Intent(this, SettingsActivity.class));
+      Toast.makeText(this, "coming soon", Toast.LENGTH_SHORT).show();
       return true;
     }
     return super.onOptionsItemSelected(item);
