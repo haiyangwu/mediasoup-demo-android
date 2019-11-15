@@ -1,5 +1,8 @@
 package org.mediasoup.droid.lib.socket;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
 import org.protoojs.droid.Message;
@@ -9,35 +12,63 @@ import io.crossbar.autobahn.websocket.WebSocketConnection;
 import io.crossbar.autobahn.websocket.exceptions.WebSocketException;
 import io.crossbar.autobahn.websocket.interfaces.IWebSocketConnectionHandler;
 import io.crossbar.autobahn.websocket.types.ConnectionResponse;
-import io.crossbar.autobahn.websocket.types.WebSocketOptions;
 
-public class WebSocketTransport extends AbsWebSocketTransport implements IWebSocketConnectionHandler {
+public class WebSocketTransport extends AbsWebSocketTransport
+    implements IWebSocketConnectionHandler {
 
   // Log tag.
   private static final String TAG = "WebSocketTransport";
   // Closed flag.
   private boolean mClosed;
-  // Connected flag.
-  private boolean mConnected;
-  // WebSocketConnection options.
-  private WebSocketOptions mOptions;
+  // Retry operation.
+  private RetryStrategy mRetryStrategy;
   // WebSocketConnection instance.
   private WebSocketConnection mWebSocketConnection;
   // Listener.
   private Listener mListener;
 
-  public WebSocketTransport(String url) {
-    this(url, null);
+  private Handler mHandler = new Handler(Looper.getMainLooper());
+
+  private static class RetryStrategy {
+
+    private final int retries;
+    private final int factor;
+    private final int minTimeout;
+    private final int maxTimeout;
+
+    private int retryCount = 0;
+
+    RetryStrategy(int retries, int factor, int minTimeout, int maxTimeout) {
+      this.retries = retries;
+      this.factor = factor;
+      this.minTimeout = minTimeout;
+      this.maxTimeout = maxTimeout;
+    }
+
+    void retried() {
+      retryCount++;
+    }
+
+    int getReconnectInterval() {
+      Logger.d(TAG, "getReconnectInterval() ");
+      if (retryCount > retries) {
+        return -1;
+      }
+      int reconnectInterval = (int) (minTimeout * Math.pow(factor, retryCount));
+      reconnectInterval = Math.min(reconnectInterval, maxTimeout);
+      return reconnectInterval;
+    }
+
+    void reset() {
+      if (retryCount != 0) {
+        retryCount = 0;
+      }
+    }
   }
 
-  public WebSocketTransport(String url, WebSocketOptions options) {
+  public WebSocketTransport(String url) {
     super(url);
-    if (options == null) {
-      mOptions = new WebSocketOptions();
-      mOptions.setReconnectInterval(100);
-    } else {
-      mOptions = options;
-    }
+    mRetryStrategy = new RetryStrategy(10, 2, 1000, 8 * 1000);
     mWebSocketConnection = new WebSocketConnection();
   }
 
@@ -46,10 +77,31 @@ public class WebSocketTransport extends AbsWebSocketTransport implements IWebSoc
     mListener = listener;
     try {
       String[] wsSubprotocols = {"protoo"};
-      mWebSocketConnection.connect(mUrl, wsSubprotocols, this, mOptions, null);
+      mWebSocketConnection.connect(mUrl, wsSubprotocols, this, null, null);
     } catch (WebSocketException ex) {
       Logger.e(TAG, "", ex);
     }
+  }
+
+  private boolean scheduleReconnect() {
+    Logger.d(TAG, "scheduleReconnect()");
+    int reconnectInterval = mRetryStrategy.getReconnectInterval();
+    if (reconnectInterval == -1) {
+      return false;
+    }
+    mHandler.postDelayed(
+        () -> {
+          if (mClosed) {
+            return;
+          }
+          if (mWebSocketConnection != null) {
+            Logger.d(TAG, "doing reconnect job");
+            mWebSocketConnection.reconnect();
+            mRetryStrategy.retried();
+          }
+        },
+        reconnectInterval);
+    return true;
   }
 
   @Override
@@ -87,10 +139,10 @@ public class WebSocketTransport extends AbsWebSocketTransport implements IWebSoc
       return;
     }
     Logger.d(TAG, "onOpen()");
-    mConnected = true;
     if (mListener != null) {
       mListener.onOpen();
     }
+    mRetryStrategy.reset();
   }
 
   @Override
@@ -98,29 +150,33 @@ public class WebSocketTransport extends AbsWebSocketTransport implements IWebSoc
     if (mClosed) {
       return;
     }
-    Logger.w(TAG, "onClose() " + reason);
-    boolean isOnFail =
-        (code == IWebSocketConnectionHandler.CLOSE_CANNOT_CONNECT)
-            || (!mConnected && code == IWebSocketConnectionHandler.CLOSE_RECONNECT);
-    boolean isOnDisconnect =
-        (code == IWebSocketConnectionHandler.CLOSE_CONNECTION_LOST)
-            || (mConnected && code == IWebSocketConnectionHandler.CLOSE_RECONNECT);
 
-    if (mListener != null) {
-      if (isOnFail) {
-        mListener.onFail();
-        return;
-      } else if (isOnDisconnect) {
-        mConnected = false;
-        mListener.onDisconnected();
-        return;
+    if (code == IWebSocketConnectionHandler.CLOSE_RECONNECT) {
+      throw new IllegalStateException("reconnect should out of WebSocketConnection");
+    }
+
+    Logger.w(TAG, "onClose() code: " + code + ", reason: " + reason);
+
+    boolean shouldReconnect =
+        (code == IWebSocketConnectionHandler.CLOSE_CANNOT_CONNECT)
+            || (code == IWebSocketConnectionHandler.CLOSE_CONNECTION_LOST);
+
+    if (shouldReconnect && scheduleReconnect()) {
+      if (mListener != null) {
+        if (code == IWebSocketConnectionHandler.CLOSE_CANNOT_CONNECT) {
+          mListener.onFail();
+        } else {
+          mListener.onDisconnected();
+        }
       }
+      return;
     }
 
     mClosed = true;
     if (mListener != null) {
       mListener.onClose();
     }
+    mRetryStrategy.reset();
   }
 
   @Override

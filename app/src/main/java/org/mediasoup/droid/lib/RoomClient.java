@@ -36,9 +36,13 @@ public class RoomClient {
   private static final String TAG = "RoomClient";
 
   public enum RoomState {
+    // initial state.
     NEW,
+    // connecting or reconnecting.
     CONNECTING,
+    // connected.
     CONNECTED,
+    // closed.
     CLOSED,
   }
 
@@ -142,6 +146,7 @@ public class RoomClient {
     this.protooUrl = UrlFactory.getProtooUrl(roomId, peerId, forceH264, forceVP9);
     this.consumers = new HashMap<>();
     this.roomRepository = RoomRepository.getInstance();
+    this.roomRepository.setUrl(this.protooUrl);
 
     // support for selfSigned cert.
     UrlFactory.enableSelfSignedHttpClient();
@@ -268,6 +273,7 @@ public class RoomClient {
         @Override
         public void onFail() {
           roomRepository.notify("error", "WebSocket connection failed");
+          roomRepository.setRoomState(RoomState.CONNECTING);
         }
 
         @Override
@@ -285,7 +291,8 @@ public class RoomClient {
 
         @Override
         public void onDisconnected() {
-          roomRepository.setRoomState(RoomState.CLOSED);
+          roomRepository.notify("error", "WebSocket disconnected");
+          roomRepository.setRoomState(RoomState.CONNECTING);
         }
 
         @Override
