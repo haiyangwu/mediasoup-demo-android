@@ -6,6 +6,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,6 +30,7 @@ import com.nabinbhandari.android.permissions.Permissions;
 import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.demo.vm.RoomViewModel;
 import org.mediasoup.droid.lib.RoomClient;
+import org.mediasoup.droid.lib.model.Notify;
 
 import static org.mediasoup.droid.lib.Utils.getRandomString;
 
@@ -143,6 +145,24 @@ public class RoomActivity extends AppCompatActivity {
     // Room info.
     final Observer<String> roomInfoObserver = info -> roomInfo.setText(info);
     roomViewModel.getRoomInfo().observe(this, roomInfoObserver);
+
+    // Notify
+    final Observer<Notify> notifyObserver =
+        notify -> {
+          if (notify == null) {
+            return;
+          }
+          if ("error".equals(notify.getType())) {
+            Toast toast = Toast.makeText(this, notify.getText(), notify.getTimeout());
+            TextView toastMessage = toast.getView().findViewById(android.R.id.message);
+            toastMessage.setTextColor(Color.RED);
+            toast.show();
+          } else {
+            Toast.makeText(this, notify.getText(), notify.getTimeout()).show();
+          }
+        };
+
+    roomViewModel.getNotify().observe(this, notifyObserver);
   }
 
   private PermissionHandler permissionHandler =

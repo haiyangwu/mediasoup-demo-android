@@ -7,13 +7,13 @@ public class Notify {
   private String id;
   private String type;
   private String text;
-  private long timeout;
+  private int timeout;
 
   public Notify(String type, String text) {
     this(type, text, 0);
   }
 
-  public Notify(String type, String text, long timeout) {
+  public Notify(String type, String text, int timeout) {
     this.id = Utils.getRandomString(6).toLowerCase();
     this.type = type;
     this.text = text;
@@ -39,7 +39,7 @@ public class Notify {
     return text;
   }
 
-  public long getTimeout() {
+  public int getTimeout() {
     return timeout;
   }
 }

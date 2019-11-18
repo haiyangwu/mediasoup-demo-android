@@ -371,16 +371,14 @@ public class RoomClient {
                 roomRepository.addPeer(peer.optString("id"), peer);
               }
               if (options.produce) {
+                boolean canSendMic = mediasoupDevice.canProduce("audio");
+                boolean canSendCam = mediasoupDevice.canProduce("video");
+                roomRepository.setMediaCapabilities(canSendMic, canSendCam);
+
                 workHandler.post(this::createSendTransport);
               }
               if (options.consume) {
                 workHandler.post(this::createRecvTransport);
-              }
-
-              if (options.produce) {
-                boolean canSendMic = mediasoupDevice.canProduce("audio");
-                boolean canSendCam = mediasoupDevice.canProduce("video");
-                roomRepository.setMediaCapabilities(canSendMic, canSendCam);
               }
             });
   }

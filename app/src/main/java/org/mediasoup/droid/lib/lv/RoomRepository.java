@@ -64,7 +64,7 @@ public class RoomRepository {
     roomInfo.postValue(roomInfo -> roomInfo.setState(state));
   }
 
-  public void notify(String text, long timeout) {
+  public void notify(String text, int timeout) {
     notify.postValue(new Notify("info", text, timeout));
   }
 

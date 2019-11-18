@@ -7,16 +7,19 @@ import android.net.UrlQuerySanitizer;
 import androidx.annotation.NonNull;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
+import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.Transformations;
 import androidx.lifecycle.ViewModel;
 
 import org.mediasoup.droid.demo.R;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.lv.RoomRepository;
+import org.mediasoup.droid.lib.model.Notify;
 import org.mediasoup.droid.lib.model.RoomInfo;
 
 public class RoomViewModel extends AndroidViewModel {
 
+  private RoomRepository repository;
   private LiveData<String> invitationLink;
   private LiveData<String> roomInfo;
   private LiveData<RoomClient.RoomState> state;
@@ -24,7 +27,7 @@ public class RoomViewModel extends AndroidViewModel {
   public RoomViewModel(@NonNull Application application) {
     super(application);
 
-    RoomRepository repository = RoomRepository.getInstance();
+    repository = RoomRepository.getInstance();
     invitationLink = Transformations.map(repository.getRoomInfo(), RoomInfo::getUrl);
     roomInfo =
         Transformations.map(
@@ -45,5 +48,9 @@ public class RoomViewModel extends AndroidViewModel {
 
   public LiveData<RoomClient.RoomState> getState() {
     return state;
+  }
+
+  public LiveData<Notify> getNotify() {
+    return repository.getNotify();
   }
 }
