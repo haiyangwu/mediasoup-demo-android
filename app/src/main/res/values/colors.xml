@@ -3,11 +3,13 @@
     <color name="colorPrimary">#353535</color>
     <color name="colorPrimaryDark">#222222</color>
     <color name="colorAccent">#33b4db</color>
-    <color name="textColorPrimary">#aaffffff</color>
 
     <color name="bg">#243B55</color>
     <color name="state_new_closed">#aaaaaa</color>
     <color name="state_connecting">#ffa500</color>
     <color name="state_connected">#30bd18</color>
+    <color name="area_bg">#22ffffff</color>
+
+    <color name="text_color">#bfffffff</color>
 
 </resources>

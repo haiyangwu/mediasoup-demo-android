@@ -48,6 +48,14 @@ public class RoomRepository {
     return me;
   }
 
+  public void setRoomPeerId(String roomId, String peerId) {
+    roomInfo.postValue(
+        roomInfo -> {
+          roomInfo.setRoomId(roomId);
+          roomInfo.setPeerId(peerId);
+        });
+  }
+
   public void setUrl(String url) {
     roomInfo.postValue(roomInfo -> roomInfo.setUrl(url));
   }

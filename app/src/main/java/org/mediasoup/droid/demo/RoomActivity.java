@@ -1,14 +1,22 @@
 package org.mediasoup.droid.demo;
 
 import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
 
+import android.preference.PreferenceManager;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
@@ -28,8 +36,16 @@ public class RoomActivity extends AppCompatActivity {
 
   private static final String TAG = RoomActivity.class.getSimpleName();
 
-  private ImageView roomState;
+  private String roomId, peerId, displayName;
+  private boolean forceH264, forceVP9;
+
+  private RoomClient.RoomOptions options = new RoomClient.RoomOptions();
   private RoomClient roomClient;
+
+  private TextView invitationLink;
+  private TextView roomInfo;
+  private ImageView roomState;
+
   private Animation animConnection;
 
   @Override
@@ -37,41 +53,76 @@ public class RoomActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_room);
 
-    // TODO(HaiyangWU): load from setting activity.
-    String roomId = getRandomString(8);
-    String peerId = getRandomString(8);
-    String displayName = getRandomString(8);
-    roomClient = new RoomClient(roomId, peerId, displayName);
+    loadRoomConfig();
+    roomClient = new RoomClient(roomId, peerId, displayName, forceH264, forceVP9, options);
 
-    String roomInfo = getString(R.string.room_info, roomId, peerId);
-    Logger.d(TAG, "roomInfo: " + roomInfo);
-
+    invitationLink = findViewById(R.id.invitation_link);
     roomState = findViewById(R.id.room_state);
-    ((TextView) findViewById(R.id.room_info)).setText(roomInfo);
+    roomInfo = findViewById(R.id.room_info);
     animConnection = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ani_connecting);
 
-    findViewById(R.id.enable_mic)
-        .setOnClickListener(
-            v -> {
-              if (roomClient != null) {
-                roomClient.enableMic(RoomActivity.this);
-              }
-            });
-    findViewById(R.id.enable_cam)
-        .setOnClickListener(
-            v -> {
-              if (roomClient != null) {
-                roomClient.enableCam(RoomActivity.this);
-              }
-            });
+    invitationLink.setOnClickListener(
+        view -> {
+          ClipboardManager clipboard =
+              (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+          ClipData clip = ClipData.newPlainText("label", (String) view.getTag());
+          clipboard.setPrimaryClip(clip);
+          Toast.makeText(this, "Room link copied to the clipboard", Toast.LENGTH_SHORT).show();
+        });
 
     initViewModel();
     checkPermission();
   }
 
+  private void loadRoomConfig() {
+    SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+
+    // Room initial config.
+    roomId = preferences.getString("roomId", "");
+    peerId = preferences.getString("peerId", "");
+    displayName = preferences.getString("displayName", "");
+    forceH264 = preferences.getBoolean("forceH264", false);
+    forceVP9 = preferences.getBoolean("forceVP9", false);
+    if (TextUtils.isEmpty(roomId)) {
+      roomId = getRandomString(8);
+      preferences.edit().putString("roomId", roomId).apply();
+    }
+    if (TextUtils.isEmpty(peerId)) {
+      peerId = getRandomString(8);
+      preferences.edit().putString("peerId", peerId).apply();
+    }
+    if (TextUtils.isEmpty(displayName)) {
+      displayName = getRandomString(8);
+      preferences.edit().putString("displayName", displayName).apply();
+    }
+
+    // Room action config.
+    // TODO(HaiyangWu): default produce/consume true when prepared.
+    options.setProduce(preferences.getBoolean("produce", false));
+    options.setConsume(preferences.getBoolean("consume", false));
+    options.setForceTcp(preferences.getBoolean("forceTcp", false));
+
+    // Device config.
+    // TODO(HaiyangWu): apply this to local video source.
+    String camera = preferences.getString("camera", "front");
+  }
+
   private void initViewModel() {
     RoomViewModel roomViewModel = ViewModelProviders.of(this).get(RoomViewModel.class);
 
+    // Invitation Link.
+    final Observer<String> linkObserver =
+        link -> {
+          if (TextUtils.isEmpty(link)) {
+            invitationLink.setVisibility(View.INVISIBLE);
+          } else {
+            invitationLink.setVisibility(View.VISIBLE);
+            invitationLink.setTag(link);
+          }
+        };
+    roomViewModel.getInvitationLink().observe(this, linkObserver);
+
+    // Room state.
     final Observer<RoomClient.RoomState> roomStateObserver =
         state -> {
           if (RoomClient.RoomState.CONNECTING.equals(state)) {
@@ -88,6 +139,10 @@ public class RoomActivity extends AppCompatActivity {
           }
         };
     roomViewModel.getState().observe(this, roomStateObserver);
+
+    // Room info.
+    final Observer<String> roomInfoObserver = info -> roomInfo.setText(info);
+    roomViewModel.getRoomInfo().observe(this, roomInfoObserver);
   }
 
   private PermissionHandler permissionHandler =
@@ -122,8 +177,7 @@ public class RoomActivity extends AppCompatActivity {
   public boolean onOptionsItemSelected(MenuItem item) {
     // Handle item selection
     if (item.getItemId() == R.id.setting) {
-      // startActivity(new Intent(this, SettingsActivity.class));
-      Toast.makeText(this, "coming soon", Toast.LENGTH_SHORT).show();
+      startActivity(new Intent(this, SettingsActivity.class));
       return true;
     }
     return super.onOptionsItemSelected(item);

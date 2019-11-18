@@ -146,7 +146,8 @@ public class RoomClient {
     this.protooUrl = UrlFactory.getProtooUrl(roomId, peerId, forceH264, forceVP9);
     this.consumers = new HashMap<>();
     this.roomRepository = RoomRepository.getInstance();
-    this.roomRepository.setUrl(this.protooUrl);
+    this.roomRepository.setRoomPeerId(roomId, peerId);
+    this.roomRepository.setUrl(UrlFactory.getInvitationLink(roomId, forceH264, forceVP9));
 
     // support for selfSigned cert.
     UrlFactory.enableSelfSignedHttpClient();
@@ -359,13 +360,14 @@ public class RoomClient {
               this.close();
             })
         .subscribe(
-            peers -> {
+            res -> {
               roomRepository.setRoomState(RoomState.CONNECTED);
               roomRepository.notify("You are in the room!", 3000);
 
-              JSONArray peers_ = JsonUtils.toJsonArray(peers);
-              for (int i = 0; i < peers_.length(); i++) {
-                JSONObject peer = peers_.getJSONObject(i);
+              JSONObject resObj = JsonUtils.toJsonObject(res);
+              JSONArray peers = resObj.optJSONArray("peers");
+              for (int i = 0; peers != null && i < peers.length(); i++) {
+                JSONObject peer = peers.getJSONObject(i);
                 roomRepository.addPeer(peer.optString("id"), peer);
               }
               if (options.produce) {
