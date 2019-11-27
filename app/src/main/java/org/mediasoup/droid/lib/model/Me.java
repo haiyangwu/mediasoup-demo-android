@@ -121,4 +121,13 @@ public class Me {
   public void setRestartIceInProgress(boolean restartIceInProgress) {
     this.restartIceInProgress = restartIceInProgress;
   }
+
+  public void clear() {
+    camInProgress = false;
+    shareInProgress = false;
+    audioOnly = false;
+    audioOnlyInProgress = false;
+    audioMuted = false;
+    restartIceInProgress = false;
+  }
 }

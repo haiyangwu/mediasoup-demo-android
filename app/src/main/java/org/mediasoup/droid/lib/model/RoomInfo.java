@@ -6,7 +6,6 @@ public class RoomInfo {
 
   private String url;
   private String roomId;
-  private String peerId;
   private RoomClient.RoomState state = RoomClient.RoomState.NEW;
   private String activeSpeakerId;
   private String statsPeerId;
@@ -26,14 +25,6 @@ public class RoomInfo {
 
   public void setRoomId(String roomId) {
     this.roomId = roomId;
-  }
-
-  public String getPeerId() {
-    return peerId;
-  }
-
-  public void setPeerId(String peerId) {
-    this.peerId = peerId;
   }
 
   public RoomClient.RoomState getState() {

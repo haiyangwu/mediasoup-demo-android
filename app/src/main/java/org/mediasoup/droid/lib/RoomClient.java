@@ -146,8 +146,9 @@ public class RoomClient {
     this.protooUrl = UrlFactory.getProtooUrl(roomId, peerId, forceH264, forceVP9);
     this.consumers = new HashMap<>();
     this.roomRepository = RoomRepository.getInstance();
-    this.roomRepository.setRoomPeerId(roomId, peerId);
-    this.roomRepository.setUrl(UrlFactory.getInvitationLink(roomId, forceH264, forceVP9));
+    this.roomRepository.setMe(peerId, displayName, this.options.device);
+    this.roomRepository.setRoomUrl(
+        roomId, UrlFactory.getInvitationLink(roomId, forceH264, forceVP9));
 
     // support for selfSigned cert.
     UrlFactory.enableSelfSignedHttpClient();
@@ -273,7 +274,7 @@ public class RoomClient {
 
         @Override
         public void onFail() {
-          roomRepository.notify("error", "WebSocket connection failed");
+          roomRepository.addNotify("error", "WebSocket connection failed");
           roomRepository.setRoomState(RoomState.CONNECTING);
         }
 
@@ -292,7 +293,7 @@ public class RoomClient {
 
         @Override
         public void onDisconnected() {
-          roomRepository.notify("error", "WebSocket disconnected");
+          roomRepository.addNotify("error", "WebSocket disconnected");
           roomRepository.setRoomState(RoomState.CONNECTING);
         }
 
@@ -356,13 +357,13 @@ public class RoomClient {
         .doOnError(
             t -> {
               logError("_joinRoom() failed", t);
-              roomRepository.notify("error", "Could not join the room: " + t.getMessage());
+              roomRepository.addNotify("error", "Could not join the room: " + t.getMessage());
               this.close();
             })
         .subscribe(
             res -> {
               roomRepository.setRoomState(RoomState.CONNECTED);
-              roomRepository.notify("You are in the room!", 3000);
+              roomRepository.addNotify("You are in the room!", 3000);
 
               JSONObject resObj = JsonUtils.toJsonObject(res);
               JSONArray peers = resObj.optJSONArray("peers");

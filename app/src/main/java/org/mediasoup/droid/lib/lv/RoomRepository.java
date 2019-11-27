@@ -1,21 +1,28 @@
 package org.mediasoup.droid.lib.lv;
 
+import android.text.TextUtils;
+
 import androidx.lifecycle.MutableLiveData;
 
 import org.json.JSONObject;
+import org.mediasoup.droid.Consumer;
+import org.mediasoup.droid.Producer;
 import org.mediasoup.droid.lib.RoomClient;
+import org.mediasoup.droid.lib.model.Consumers;
 import org.mediasoup.droid.lib.model.Me;
 import org.mediasoup.droid.lib.model.Notify;
+import org.mediasoup.droid.lib.model.Producers;
 import org.mediasoup.droid.lib.model.RemotePeers;
 import org.mediasoup.droid.lib.model.RoomInfo;
 
+/**
+ * Room state.
+ *
+ * <p>Just like mediasoup-demo/app/lib/redux/stateActions.js
+ */
 public class RoomRepository {
 
-  private SupplierMutableLiveData<RoomInfo> roomInfo = new SupplierMutableLiveData<>(RoomInfo::new);
-  private MutableLiveData<Notify> notify = new MutableLiveData<>();
-  private SupplierMutableLiveData<RemotePeers> peers =
-      new SupplierMutableLiveData<>(RemotePeers::new);
-  private SupplierMutableLiveData<Me> me = new SupplierMutableLiveData<>(Me::new);
+  private static final String TAG = "RoomRepository";
 
   private static RoomRepository instance;
 
@@ -32,8 +39,202 @@ public class RoomRepository {
 
   private RoomRepository() {}
 
+  // room
+  // mediasoup-demo/app/lib/redux/reducers/room.js
+  private SupplierMutableLiveData<RoomInfo> roomInfo = new SupplierMutableLiveData<>(RoomInfo::new);
+
+  // me
+  // mediasoup-demo/app/lib/redux/reducers/me.js
+  private SupplierMutableLiveData<Me> me = new SupplierMutableLiveData<>(Me::new);
+
+  // producers
+  // mediasoup-demo/app/lib/redux/reducers/producers.js
+  private SupplierMutableLiveData<Producers> producers =
+      new SupplierMutableLiveData<>(Producers::new);
+
+  // peers
+  // mediasoup-demo/app/lib/redux/reducers/peer.js
+  private SupplierMutableLiveData<RemotePeers> peers =
+      new SupplierMutableLiveData<>(RemotePeers::new);
+
+  // consumers
+  // mediasoup-demo/app/lib/redux/reducers/consumers.js
+  private SupplierMutableLiveData<Consumers> consumers =
+      new SupplierMutableLiveData<>(Consumers::new);
+
+  // notify
+  // mediasoup-demo/app/lib/redux/reducers/notifications.js
+  private MutableLiveData<Notify> notify = new MutableLiveData<>();
+
+  public void setRoomUrl(String roomId, String url) {
+    roomInfo.postValue(
+        roomInfo -> {
+          roomInfo.setRoomId(roomId);
+          roomInfo.setUrl(url);
+        });
+  }
+
+  public void setRoomState(RoomClient.RoomState state) {
+    roomInfo.postValue(roomInfo -> roomInfo.setState(state));
+
+    if (RoomClient.RoomState.CLOSED.equals(state)) {
+      peers.postValue(RemotePeers::clear);
+      me.postValue(Me::clear);
+      producers.postValue(Producers::clear);
+      consumers.postValue(Consumers::clear);
+    }
+  }
+
+  public void setRoomActiveSpeaker(String peerId) {
+    roomInfo.postValue(roomInfo -> roomInfo.setActiveSpeakerId(peerId));
+  }
+
+  public void setRoomStatsPeerId(String peerId) {
+    roomInfo.postValue(roomInfo -> roomInfo.setStatsPeerId(peerId));
+  }
+
+  public void setRoomFaceDetection(boolean enable) {
+    roomInfo.postValue(roomInfo -> roomInfo.setFaceDetection(enable));
+  }
+
+  public void setMe(String peerId, String displayName, JSONObject device) {
+    me.postValue(
+        me -> {
+          me.setId(peerId);
+          me.setDisplayName(displayName);
+          me.setDevice(device);
+        });
+  }
+
+  public void setMediaCapabilities(boolean canSendMic, boolean canSendCam) {
+    me.postValue(
+        me -> {
+          me.setCanSendMic(canSendMic);
+          me.setCanSendCam(canSendCam);
+        });
+  }
+
+  public void setCanChangeCam(boolean canChangeCam) {
+    me.postValue(me -> me.setCanSendCam(canChangeCam));
+  }
+
+  public void setDisplayName(String displayName) {
+    me.postValue(me -> me.setDisplayName(displayName));
+  }
+
+  public void setAudioOnlyState(boolean enabled) {
+    me.postValue(me -> me.setAudioOnly(enabled));
+  }
+
+  public void setAudioOnlyInProgress(boolean enabled) {
+    me.postValue(me -> me.setAudioOnlyInProgress(enabled));
+  }
+
+  public void setAudioMutedState(boolean enabled) {
+    me.postValue(me -> me.setAudioMuted(enabled));
+  }
+
+  public void setRestartIceInProgress(boolean restartIceInProgress) {
+    me.postValue(me -> me.setRestartIceInProgress(restartIceInProgress));
+  }
+
+  public void setCamInProgress(boolean inProgress) {
+    me.postValue(me -> me.setCamInProgress(inProgress));
+  }
+
+  public void addProducer(Producer producer) {
+    producers.postValue(producers -> producers.addProducer(producer));
+  }
+
+  public void setProducerPaused(String producerId) {
+    producers.postValue(producers -> setProducerPaused(producerId));
+  }
+
+  public void setProducerResumed(String producerId) {
+    producers.postValue(producers -> setProducerResumed(producerId));
+  }
+
+  public void removeProducer(String producerId) {
+    producers.postValue(producers -> producers.removeProducer(producerId));
+  }
+
+  public void setProducerScore(String producerId, int score) {
+    producers.postValue(producers -> setProducerScore(producerId, score));
+  }
+
+  public void addDataProducer(Object dataProducer) {
+    // TODO(HaiyangWU): support data consumer. Note, new DataConsumer.java
+  }
+
+  public void removeDataProducer(String dataProducerId) {
+    // TODO(HaiyangWU): support data consumer.
+  }
+
+  public void addPeer(String peerId, JSONObject peerInfo) {
+    peers.postValue(peersInfo -> peersInfo.addPeer(peerId, peerInfo));
+  }
+
+  public void setPeerDisplayName(String peerId, String displayName) {
+    peers.postValue(peersInfo -> peersInfo.setPeerDisplayName(peerId, displayName));
+  }
+
+  public void removePeer(String peerId) {
+    roomInfo.postValue(
+        roomInfo -> {
+          if (!TextUtils.isEmpty(peerId) && peerId.equals(roomInfo.getActiveSpeakerId())) {
+            roomInfo.setActiveSpeakerId(null);
+          }
+          if (!TextUtils.isEmpty(peerId) && peerId.equals(roomInfo.getStatsPeerId())) {
+            roomInfo.setStatsPeerId(null);
+          }
+        });
+    peers.postValue(peersInfo -> peersInfo.removePeer(peerId));
+  }
+
+  public void addConsumer(String peerId, Consumer consumer) {
+    consumers.postValue(consumers -> consumers.addConsumer(consumer));
+    peers.postValue(peersInfo -> peersInfo.addConsumer(peerId, consumer));
+  }
+
+  public void removeConsumer(String peerId, String consumerId) {
+    consumers.postValue(consumers -> consumers.removeConsumer(consumerId));
+    peers.postValue(peersInfo -> peersInfo.removeConsumer(peerId, consumerId));
+  }
+
+  public void setConsumerPaused(String consumerId, String originator) {
+    consumers.postValue(consumers -> consumers.setConsumerPaused(consumerId, originator));
+  }
+
+  public void setConsumerResumed(String consumerId, String originator) {
+    consumers.postValue(consumers -> consumers.setConsumerResumed(consumerId, originator));
+  }
+
+  public void setConsumerScore(String consumerId, int score) {
+    consumers.postValue(consumers -> consumers.setConsumerScore(consumerId, score));
+  }
+
+  public void addDataConsumer(String peerId, Object dataConsumer) {
+    // TODO(HaiyangWU): support data consumer. Note, new DataConsumer.java
+  }
+
+  public void removeDataConsumer(String peerId, String dataConsumerId) {
+    // TODO(HaiyangWU): support data consumer.
+  }
+
+  public void addNotify(String text, int timeout) {
+    notify.postValue(new Notify("info", text, timeout));
+  }
+
+  public void addNotify(String type, String text) {
+    notify.postValue(new Notify(type, text));
+  }
+
   public SupplierMutableLiveData<RoomInfo> getRoomInfo() {
     return roomInfo;
+  }
+
+  public SupplierMutableLiveData<Me> getMe() {
+    return me;
   }
 
   public MutableLiveData<Notify> getNotify() {
@@ -44,44 +245,11 @@ public class RoomRepository {
     return peers;
   }
 
-  public SupplierMutableLiveData<Me> getMe() {
-    return me;
+  public SupplierMutableLiveData<Producers> getProducers() {
+    return producers;
   }
 
-  public void setRoomPeerId(String roomId, String peerId) {
-    roomInfo.postValue(
-        roomInfo -> {
-          roomInfo.setRoomId(roomId);
-          roomInfo.setPeerId(peerId);
-        });
-  }
-
-  public void setUrl(String url) {
-    roomInfo.postValue(roomInfo -> roomInfo.setUrl(url));
-  }
-
-  public void setRoomState(RoomClient.RoomState state) {
-    roomInfo.postValue(roomInfo -> roomInfo.setState(state));
-  }
-
-  public void notify(String text, int timeout) {
-    notify.postValue(new Notify("info", text, timeout));
-  }
-
-  public void notify(String type, String text) {
-    notify.postValue(new Notify(type, text));
-  }
-
-  public void addPeer(String id, JSONObject peerInfo) {
-    peers.postValue(
-        peersInfo -> peersInfo.getPeersMap().put(id, new RemotePeers.RemotePeer(id, peerInfo)));
-  }
-
-  public void setMediaCapabilities(boolean canSendMic, boolean canSendCam) {
-    me.postValue(
-        me -> {
-          me.setCanSendMic(canSendMic);
-          me.setCanSendCam(canSendCam);
-        });
+  public SupplierMutableLiveData<Consumers> getConsumers() {
+    return consumers;
   }
 }
