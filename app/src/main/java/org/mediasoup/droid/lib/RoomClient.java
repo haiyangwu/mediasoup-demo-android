@@ -87,6 +87,8 @@ public class RoomClient {
     }
   }
 
+  // Android context.
+  private final Context context;
   // Room options.
   private final @NonNull RoomOptions options;
   // Display name.
@@ -124,21 +126,24 @@ public class RoomClient {
   // Stored Room States.
   private final @NonNull RoomRepository roomRepository;
 
-  public RoomClient(String roomId, String peerId, String displayName) {
-    this(roomId, peerId, displayName, false, false, null);
-  }
-
-  public RoomClient(String roomId, String peerId, String displayName, RoomOptions options) {
-    this(roomId, peerId, displayName, false, false, options);
+  public RoomClient(Context context, String roomId, String peerId, String displayName) {
+    this(context, roomId, peerId, displayName, false, false, null);
   }
 
   public RoomClient(
+      Context context, String roomId, String peerId, String displayName, RoomOptions options) {
+    this(context, roomId, peerId, displayName, false, false, options);
+  }
+
+  public RoomClient(
+      Context context,
       String roomId,
       String peerId,
       String displayName,
       boolean forceH264,
       boolean forceVP9,
       RoomOptions options) {
+    this.context = context.getApplicationContext();
     this.options = options == null ? new RoomOptions() : options;
     this.displayName = displayName;
     this.closed = false;
@@ -168,7 +173,7 @@ public class RoomClient {
   }
 
   @MainThread
-  public void enableMic(Context context) {
+  private void enableMic() {
     if (!mediasoupDevice.isLoaded()) {
       Logger.w(TAG, "enableMic() | not loaded");
       return;
@@ -185,11 +190,18 @@ public class RoomClient {
       localAudioTrack = PeerConnectionUtils.createAudioTrack(context, "mic");
       localAudioTrack.setEnabled(true);
     }
-    workHandler.post(this::enableMicImpl);
+    micProducer =
+        sendTransport.produce(
+            producer -> {
+              Logger.w(TAG, "onTransportClose()");
+            },
+            localAudioTrack,
+            null,
+            null);
   }
 
   @MainThread
-  public void enableCam(Context context) {
+  private void enableCam() {
     if (!mediasoupDevice.isLoaded()) {
       Logger.w(TAG, "enableCam() | not loaded");
       return;
@@ -206,23 +218,6 @@ public class RoomClient {
       localVideoTrack = PeerConnectionUtils.createVideoTrack(context, "cam");
       localVideoTrack.setEnabled(true);
     }
-    workHandler.post(this::enableCameraImpl);
-  }
-
-  @WorkerThread
-  private void enableMicImpl() {
-    micProducer =
-        sendTransport.produce(
-            producer -> {
-              Logger.w(TAG, "onTransportClose()");
-            },
-            localAudioTrack,
-            null,
-            null);
-  }
-
-  @WorkerThread
-  private void enableCameraImpl() {
     camProducer =
         sendTransport.produce(
             producer -> {
@@ -263,6 +258,13 @@ public class RoomClient {
     workHandler.getLooper().quit();
 
     roomRepository.setRoomState(RoomState.CLOSED);
+
+    // dispose track and media source.
+    localAudioTrack.dispose();
+    localAudioTrack = null;
+    localVideoTrack.dispose();
+    localVideoTrack = null;
+    PeerConnectionUtils.dispose();
   }
 
   private Peer.Listener peerListener =
@@ -412,6 +414,11 @@ public class RoomClient {
     sendTransport =
         mediasoupDevice.createSendTransport(
             sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
+
+    if (options.produce) {
+      workHandler.post(this::enableMic);
+      workHandler.post(this::enableCam);
+    }
   }
 
   @WorkerThread

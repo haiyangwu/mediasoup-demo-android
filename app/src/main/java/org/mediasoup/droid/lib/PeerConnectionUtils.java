@@ -209,4 +209,13 @@ public class PeerConnectionUtils {
 
     return mPeerConnectionFactory.createVideoTrack(id, mVideoSource);
   }
+
+  public static void dispose() {
+    mVideoSource.dispose();
+    mVideoSource = null;
+    mAudioSource.dispose();
+    mAudioSource = null;
+    mCamCapture.dispose();
+    mCamCapture = null;
+  }
 }

@@ -56,7 +56,7 @@ public class RoomActivity extends AppCompatActivity {
     setContentView(R.layout.activity_room);
 
     loadRoomConfig();
-    roomClient = new RoomClient(roomId, peerId, displayName, forceH264, forceVP9, options);
+    roomClient = new RoomClient(this, roomId, peerId, displayName, forceH264, forceVP9, options);
 
     invitationLink = findViewById(R.id.invitation_link);
     roomState = findViewById(R.id.room_state);

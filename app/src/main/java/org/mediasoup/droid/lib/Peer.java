@@ -3,12 +3,15 @@ package org.mediasoup.droid.lib;
 import androidx.annotation.NonNull;
 
 import org.json.JSONObject;
+import org.mediasoup.droid.Logger;
 import org.protoojs.droid.ProtooException;
 import org.mediasoup.droid.lib.socket.WebSocketTransport;
 
 import io.reactivex.rxjava3.core.Observable;
 
 public class Peer extends org.protoojs.droid.Peer {
+
+  private static final String TAG = "Peer";
 
   public Peer(@NonNull WebSocketTransport transport, @NonNull Listener listener) {
     super(transport, listener);
@@ -19,6 +22,7 @@ public class Peer extends org.protoojs.droid.Peer {
   }
 
   public Observable<String> request(String method, @NonNull JSONObject data) {
+    Logger.d(TAG, "request(), method: " + method);
     return Observable.create(
         emitter ->
             request(
