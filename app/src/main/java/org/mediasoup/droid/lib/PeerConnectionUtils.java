@@ -211,11 +211,17 @@ public class PeerConnectionUtils {
   }
 
   public static void dispose() {
-    mVideoSource.dispose();
-    mVideoSource = null;
-    mAudioSource.dispose();
-    mAudioSource = null;
-    mCamCapture.dispose();
-    mCamCapture = null;
+    if (mVideoSource != null) {
+      mVideoSource.dispose();
+      mVideoSource = null;
+    }
+    if (mAudioSource != null) {
+      mAudioSource.dispose();
+      mAudioSource = null;
+    }
+    if (mCamCapture != null) {
+      mCamCapture.dispose();
+      mCamCapture = null;
+    }
   }
 }

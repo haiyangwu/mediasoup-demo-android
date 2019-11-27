@@ -260,10 +260,14 @@ public class RoomClient {
     roomRepository.setRoomState(RoomState.CLOSED);
 
     // dispose track and media source.
-    localAudioTrack.dispose();
-    localAudioTrack = null;
-    localVideoTrack.dispose();
-    localVideoTrack = null;
+    if (localAudioTrack != null) {
+      localAudioTrack.dispose();
+      localAudioTrack = null;
+    }
+    if (localVideoTrack != null) {
+      localVideoTrack.dispose();
+      localVideoTrack = null;
+    }
     PeerConnectionUtils.dispose();
   }
 
