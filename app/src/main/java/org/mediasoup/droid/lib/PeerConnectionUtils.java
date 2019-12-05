@@ -40,7 +40,9 @@ public class PeerConnectionUtils {
     PeerConnectionFactory.Builder builder = PeerConnectionFactory.builder();
     builder.setOptions(null);
 
-    mEglBase = EglBase.create();
+    if (mEglBase == null) {
+      mEglBase = EglBase.create();
+    }
 
     AudioDeviceModule adm = createJavaAudioDevice(context);
     VideoEncoderFactory encoderFactory =
@@ -55,6 +57,13 @@ public class PeerConnectionUtils {
             .setVideoEncoderFactory(encoderFactory)
             .setVideoDecoderFactory(decoderFactory)
             .createPeerConnectionFactory();
+  }
+
+  public static EglBase.Context getEglContext() {
+    if (mEglBase == null) {
+      mEglBase = EglBase.create();
+    }
+    return mEglBase.getEglBaseContext();
   }
 
   static AudioDeviceModule createJavaAudioDevice(Context appContext) {

@@ -21,24 +21,24 @@ import org.mediasoup.droid.lib.model.RoomInfo;
  *
  * <p>Just like mediasoup-demo/app/lib/redux/stateActions.js
  */
-public class RoomRepository {
+public class RoomContext {
 
-  private static final String TAG = "RoomRepository";
+  private static final String TAG = "RoomContext";
 
-  private static RoomRepository instance;
+  private static RoomContext instance;
 
-  public static RoomRepository getInstance() {
+  public static RoomContext getInstance() {
     if (instance == null) {
-      synchronized (RoomRepository.class) {
+      synchronized (RoomContext.class) {
         if (instance == null) {
-          instance = new RoomRepository();
+          instance = new RoomContext();
         }
       }
     }
     return instance;
   }
 
-  private RoomRepository() {}
+  private RoomContext() {}
 
   // room
   // mediasoup-demo/app/lib/redux/reducers/room.js

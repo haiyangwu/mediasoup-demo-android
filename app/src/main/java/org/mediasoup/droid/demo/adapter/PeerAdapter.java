@@ -79,7 +79,7 @@ public class PeerAdapter extends RecyclerView.Adapter<PeerAdapter.PeerViewHolder
     }
 
     void bindView(Peer peer) {
-      pvItem.bind(peer);
+      pvItem.receive(peer);
       ViewGroup.LayoutParams layoutParams = itemContainer.getLayoutParams();
       layoutParams.height = getItemHeight();
       itemContainer.setLayoutParams(layoutParams);

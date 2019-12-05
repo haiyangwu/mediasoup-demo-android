@@ -33,8 +33,9 @@ import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.demo.adapter.PeerAdapter;
 import org.mediasoup.droid.demo.view.MineView;
+import org.mediasoup.droid.demo.vm.MineViewProps;
 import org.mediasoup.droid.lib.model.Peer;
-import org.mediasoup.droid.demo.vm.RoomViewModel;
+import org.mediasoup.droid.demo.vm.RoomProps;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.model.Notify;
 
@@ -67,6 +68,7 @@ public class RoomActivity extends AppCompatActivity {
     setContentView(R.layout.activity_room);
 
     loadRoomConfig();
+    // TODO: save RoomClient instance to RoomContext.
     roomClient = new RoomClient(this, roomId, peerId, displayName, forceH264, forceVP9, options);
 
     invitationLink = findViewById(R.id.invitation_link);
@@ -126,7 +128,7 @@ public class RoomActivity extends AppCompatActivity {
   }
 
   private void initViewModel() {
-    RoomViewModel roomViewModel = ViewModelProviders.of(this).get(RoomViewModel.class);
+    RoomProps roomProps = ViewModelProviders.of(this).get(RoomProps.class);
 
     // Invitation Link.
     final Observer<String> linkObserver =
@@ -138,7 +140,7 @@ public class RoomActivity extends AppCompatActivity {
             invitationLink.setTag(link);
           }
         };
-    roomViewModel.getInvitationLink().observe(this, linkObserver);
+    roomProps.getInvitationLink().observe(this, linkObserver);
 
     // Room state.
     final Observer<RoomClient.RoomState> roomStateObserver =
@@ -156,13 +158,14 @@ public class RoomActivity extends AppCompatActivity {
             roomState.clearAnimation();
           }
         };
-    roomViewModel.getState().observe(this, roomStateObserver);
+    roomProps.getState().observe(this, roomStateObserver);
 
     // me
-    roomViewModel.getMe().observe(this, me -> mineView.bind(me));
+    MineViewProps mineViewProps = ViewModelProviders.of(this).get(MineViewProps.class);
+    mineView.bind(this, mineViewProps);
 
     // Peers
-    roomViewModel
+    roomProps
         .getPeersInfo()
         .observe(
             this,
@@ -199,7 +202,7 @@ public class RoomActivity extends AppCompatActivity {
           }
         };
 
-    roomViewModel.getNotify().observe(this, notifyObserver);
+    roomProps.getNotify().observe(this, notifyObserver);
   }
 
   private PermissionHandler permissionHandler =

@@ -15,6 +15,7 @@ import androidx.annotation.RequiresApi;
 
 import org.json.JSONObject;
 import org.mediasoup.droid.demo.R;
+import org.mediasoup.droid.lib.PeerConnectionUtils;
 import org.mediasoup.droid.lib.model.Peer;
 import org.webrtc.SurfaceViewRenderer;
 
@@ -59,12 +60,13 @@ public class PeerView extends RelativeLayout {
     vMicOff = findViewById(R.id.mic_off);
     vCamOff = findViewById(R.id.cam_off);
     svVideoRenderer = findViewById(R.id.video_renderer);
+    svVideoRenderer.init(PeerConnectionUtils.getEglContext(), null);
     vVideoHidden = findViewById(R.id.video_hidden);
     tvDisplayName = findViewById(R.id.display_name);
     tvDeviceVersion = findViewById(R.id.device_version);
   }
 
-  public void bind(Peer peer) {
+  public void receive(Peer peer) {
     if (peer == null) {
       return;
     }
@@ -111,6 +113,4 @@ public class PeerView extends RelativeLayout {
     vMicOff.setVisibility(peer.isAudioMuted() ? View.VISIBLE : View.GONE);
     vCamOff.setVisibility(!peer.isVideoVisible() ? View.VISIBLE : View.GONE);
   }
-
-  public void unBind() {}
 }

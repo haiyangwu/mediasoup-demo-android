@@ -1,5 +1,6 @@
 package org.mediasoup.droid.demo.view;
 
+import android.app.Activity;
 import android.content.Context;
 import android.os.Build;
 import android.util.AttributeSet;
@@ -12,11 +13,17 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LifecycleOwner;
 
 import org.json.JSONObject;
+import org.mediasoup.droid.Producer;
 import org.mediasoup.droid.demo.R;
+import org.mediasoup.droid.demo.vm.MineViewProps;
+import org.mediasoup.droid.lib.PeerConnectionUtils;
 import org.mediasoup.droid.lib.model.Me;
 import org.webrtc.SurfaceViewRenderer;
+import org.webrtc.VideoTrack;
 
 public class MineView extends RelativeLayout {
 
@@ -61,12 +68,42 @@ public class MineView extends RelativeLayout {
     cbCam = findViewById(R.id.cam);
     cbChangeCam = findViewById(R.id.change_cam);
     svVideoRenderer = findViewById(R.id.video_renderer);
+    svVideoRenderer.init(PeerConnectionUtils.getEglContext(), null);
     vVideoHidden = findViewById(R.id.video_hidden);
     tvDisplayName = findViewById(R.id.display_name);
     tvDeviceVersion = findViewById(R.id.device_version);
   }
 
-  public void bind(Me me) {
+  public void bind(LifecycleOwner owner, @NonNull MineViewProps props) {
+    props.me.observe(owner, this::receive);
+    props.connected.observe(
+        owner,
+        connected ->
+            findViewById(R.id.controls).setVisibility(connected ? View.VISIBLE : View.INVISIBLE));
+    props.audioProducer.observe(owner, audioProducer -> {});
+    props.videoProducer.observe(
+        owner,
+        videoProducer -> {
+          if (videoProducer != null && videoProducer.getTrack() != null) {
+            receive((VideoTrack) videoProducer.getTrack());
+          } else {
+            receive((VideoTrack) null);
+          }
+        });
+  }
+
+  private void receive(VideoTrack track) {
+    if (track != null) {
+      track.addSink(svVideoRenderer);
+      svVideoRenderer.setVisibility(View.VISIBLE);
+      vVideoHidden.setVisibility(View.GONE);
+    } else {
+      vVideoHidden.setVisibility(View.VISIBLE);
+      svVideoRenderer.setVisibility(View.GONE);
+    }
+  }
+
+  private void receive(Me me) {
     if (me == null) {
       return;
     }

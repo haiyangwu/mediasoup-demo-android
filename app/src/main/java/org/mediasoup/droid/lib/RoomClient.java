@@ -154,8 +154,8 @@ public class RoomClient extends RoomMessageHandler {
       this.options.device = deviceInfo;
     }
 
-    this.roomRepository.setMe(peerId, displayName, this.options.device);
-    this.roomRepository.setRoomUrl(
+    this.roomContext.setMe(peerId, displayName, this.options.device);
+    this.roomContext.setRoomUrl(
         roomId, UrlFactory.getInvitationLink(roomId, forceH264, forceVP9));
 
     // support for selfSigned cert.
@@ -170,7 +170,7 @@ public class RoomClient extends RoomMessageHandler {
   @MainThread
   public void join() {
     Logger.d(TAG, "join() " + this.protooUrl);
-    roomRepository.setRoomState(RoomState.CONNECTING);
+    roomContext.setRoomState(RoomState.CONNECTING);
     WebSocketTransport transport = new WebSocketTransport(protooUrl);
     protoo = new Protoo(transport, peerListener);
   }
@@ -202,7 +202,7 @@ public class RoomClient extends RoomMessageHandler {
             localAudioTrack,
             null,
             null);
-    roomRepository.addProducer(micProducer);
+    roomContext.addProducer(micProducer);
   }
 
   public void disableMic() {
@@ -247,7 +247,7 @@ public class RoomClient extends RoomMessageHandler {
             localVideoTrack,
             null,
             null);
-    roomRepository.addProducer(camProducer);
+    roomContext.addProducer(camProducer);
   }
 
   public void disableCam() {
@@ -360,7 +360,7 @@ public class RoomClient extends RoomMessageHandler {
     // quit worker handler thread.
     workHandler.getLooper().quit();
 
-    roomRepository.setRoomState(RoomState.CLOSED);
+    roomContext.setRoomState(RoomState.CLOSED);
 
     // dispose track and media source.
     if (localAudioTrack != null) {
@@ -383,8 +383,8 @@ public class RoomClient extends RoomMessageHandler {
 
         @Override
         public void onFail() {
-          roomRepository.addNotify("error", "WebSocket connection failed");
-          roomRepository.setRoomState(RoomState.CONNECTING);
+          roomContext.addNotify("error", "WebSocket connection failed");
+          roomContext.setRoomState(RoomState.CONNECTING);
         }
 
         @Override
@@ -406,8 +406,8 @@ public class RoomClient extends RoomMessageHandler {
 
         @Override
         public void onDisconnected() {
-          roomRepository.addNotify("error", "WebSocket disconnected");
-          roomRepository.setRoomState(RoomState.CONNECTING);
+          roomContext.addNotify("error", "WebSocket disconnected");
+          roomContext.setRoomState(RoomState.CONNECTING);
 
           // Close mediasoup Transports.
           if (sendTransport != null) {
@@ -433,7 +433,7 @@ public class RoomClient extends RoomMessageHandler {
   @WorkerThread
   private void joinImpl() {
     Logger.d(TAG, "joinImpl()");
-    roomRepository.setRoomState(RoomState.CONNECTED);
+    roomContext.setRoomState(RoomState.CONNECTED);
     mediasoupDevice = new Device();
     protoo
         .request("getRouterRtpCapabilities")
@@ -463,24 +463,24 @@ public class RoomClient extends RoomMessageHandler {
         .doOnError(
             t -> {
               logError("_joinRoom() failed", t);
-              roomRepository.addNotify("error", "Could not join the room: " + t.getMessage());
+              roomContext.addNotify("error", "Could not join the room: " + t.getMessage());
               this.close();
             })
         .subscribe(
             res -> {
-              roomRepository.setRoomState(RoomState.CONNECTED);
-              roomRepository.addNotify("You are in the room!", 3000);
+              roomContext.setRoomState(RoomState.CONNECTED);
+              roomContext.addNotify("You are in the room!", 3000);
 
               JSONObject resObj = JsonUtils.toJsonObject(res);
               JSONArray peers = resObj.optJSONArray("peers");
               for (int i = 0; peers != null && i < peers.length(); i++) {
                 JSONObject peer = peers.getJSONObject(i);
-                roomRepository.addPeer(peer.optString("id"), peer);
+                roomContext.addPeer(peer.optString("id"), peer);
               }
               if (options.produce) {
                 boolean canSendMic = mediasoupDevice.canProduce("audio");
                 boolean canSendCam = mediasoupDevice.canProduce("video");
-                roomRepository.setMediaCapabilities(canSendMic, canSendCam);
+                roomContext.setMediaCapabilities(canSendMic, canSendCam);
 
                 workHandler.post(this::createSendTransport);
               }

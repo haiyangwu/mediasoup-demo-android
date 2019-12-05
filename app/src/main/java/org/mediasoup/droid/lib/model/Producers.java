@@ -1,5 +1,7 @@
 package org.mediasoup.droid.lib.model;
 
+import androidx.annotation.NonNull;
+
 import org.json.JSONArray;
 import org.mediasoup.droid.Producer;
 
@@ -61,6 +63,22 @@ public class Producers {
       return;
     }
     wrapper.score = score;
+  }
+
+  public Producer filter(@NonNull String kind) {
+    for (ProducersWrapper wrapper : producers.values()) {
+      if (wrapper.producer == null) {
+        continue;
+      }
+      if (wrapper.producer.getTrack() == null) {
+        continue;
+      }
+      if (kind.equals(wrapper.producer.getTrack().kind())) {
+        return wrapper.producer;
+      }
+    }
+
+    return null;
   }
 
   public void clear() {

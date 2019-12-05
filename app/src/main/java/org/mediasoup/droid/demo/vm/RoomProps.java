@@ -8,23 +8,23 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Transformations;
 
 import org.mediasoup.droid.lib.RoomClient;
-import org.mediasoup.droid.lib.lv.RoomRepository;
+import org.mediasoup.droid.lib.lv.RoomContext;
 import org.mediasoup.droid.lib.lv.SupplierMutableLiveData;
 import org.mediasoup.droid.lib.model.Me;
 import org.mediasoup.droid.lib.model.Notify;
 import org.mediasoup.droid.lib.model.Peers;
 import org.mediasoup.droid.lib.model.RoomInfo;
 
-public class RoomViewModel extends AndroidViewModel {
+public class RoomProps extends AndroidViewModel {
 
-  private RoomRepository repository;
+  private RoomContext repository;
   private LiveData<String> invitationLink;
   private LiveData<RoomClient.RoomState> state;
 
-  public RoomViewModel(@NonNull Application application) {
+  public RoomProps(@NonNull Application application) {
     super(application);
 
-    repository = RoomRepository.getInstance();
+    repository = RoomContext.getInstance();
     invitationLink = Transformations.map(repository.getRoomInfo(), RoomInfo::getUrl);
     state = Transformations.map(repository.getRoomInfo(), RoomInfo::getState);
   }
