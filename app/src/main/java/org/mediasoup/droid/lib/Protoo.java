@@ -9,11 +9,11 @@ import org.mediasoup.droid.lib.socket.WebSocketTransport;
 
 import io.reactivex.rxjava3.core.Observable;
 
-public class Peer extends org.protoojs.droid.Peer {
+public class Protoo extends org.protoojs.droid.Peer {
 
-  private static final String TAG = "Peer";
+  private static final String TAG = "Protoo";
 
-  public Peer(@NonNull WebSocketTransport transport, @NonNull Listener listener) {
+  public Protoo(@NonNull WebSocketTransport transport, @NonNull Listener listener) {
     super(transport, listener);
   }
 

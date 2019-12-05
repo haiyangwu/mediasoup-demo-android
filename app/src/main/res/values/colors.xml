@@ -11,5 +11,8 @@
     <color name="area_bg">#22ffffff</color>
 
     <color name="text_color">#bfffffff</color>
+    <color name="text_u_color">#80ffffff</color>
+
+    <color name="trans_bg">#80243B55</color>
 
 </resources>

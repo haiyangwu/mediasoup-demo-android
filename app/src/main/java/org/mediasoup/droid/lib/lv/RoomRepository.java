@@ -4,6 +4,7 @@ import android.text.TextUtils;
 
 import androidx.lifecycle.MutableLiveData;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
 import org.mediasoup.droid.Producer;
@@ -11,8 +12,8 @@ import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.model.Consumers;
 import org.mediasoup.droid.lib.model.Me;
 import org.mediasoup.droid.lib.model.Notify;
+import org.mediasoup.droid.lib.model.Peers;
 import org.mediasoup.droid.lib.model.Producers;
-import org.mediasoup.droid.lib.model.RemotePeers;
 import org.mediasoup.droid.lib.model.RoomInfo;
 
 /**
@@ -54,8 +55,8 @@ public class RoomRepository {
 
   // peers
   // mediasoup-demo/app/lib/redux/reducers/peer.js
-  private SupplierMutableLiveData<RemotePeers> peers =
-      new SupplierMutableLiveData<>(RemotePeers::new);
+  private SupplierMutableLiveData<Peers> peers =
+      new SupplierMutableLiveData<>(Peers::new);
 
   // consumers
   // mediasoup-demo/app/lib/redux/reducers/consumers.js
@@ -78,7 +79,7 @@ public class RoomRepository {
     roomInfo.postValue(roomInfo -> roomInfo.setState(state));
 
     if (RoomClient.RoomState.CLOSED.equals(state)) {
-      peers.postValue(RemotePeers::clear);
+      peers.postValue(Peers::clear);
       me.postValue(Me::clear);
       producers.postValue(Producers::clear);
       consumers.postValue(Consumers::clear);
@@ -147,19 +148,19 @@ public class RoomRepository {
   }
 
   public void setProducerPaused(String producerId) {
-    producers.postValue(producers -> setProducerPaused(producerId));
+    producers.postValue(producers -> producers.setProducerPaused(producerId));
   }
 
   public void setProducerResumed(String producerId) {
-    producers.postValue(producers -> setProducerResumed(producerId));
+    producers.postValue(producers -> producers.setProducerResumed(producerId));
   }
 
   public void removeProducer(String producerId) {
     producers.postValue(producers -> producers.removeProducer(producerId));
   }
 
-  public void setProducerScore(String producerId, int score) {
-    producers.postValue(producers -> setProducerScore(producerId, score));
+  public void setProducerScore(String producerId, JSONArray score) {
+    producers.postValue(producers -> producers.setProducerScore(producerId, score));
   }
 
   public void addDataProducer(Object dataProducer) {
@@ -193,12 +194,10 @@ public class RoomRepository {
 
   public void addConsumer(String peerId, Consumer consumer) {
     consumers.postValue(consumers -> consumers.addConsumer(consumer));
-    peers.postValue(peersInfo -> peersInfo.addConsumer(peerId, consumer));
   }
 
   public void removeConsumer(String peerId, String consumerId) {
     consumers.postValue(consumers -> consumers.removeConsumer(consumerId));
-    peers.postValue(peersInfo -> peersInfo.removeConsumer(peerId, consumerId));
   }
 
   public void setConsumerPaused(String consumerId, String originator) {
@@ -221,6 +220,10 @@ public class RoomRepository {
     // TODO(HaiyangWU): support data consumer.
   }
 
+  public void addNotify(String text) {
+    notify.postValue(new Notify("info", text));
+  }
+
   public void addNotify(String text, int timeout) {
     notify.postValue(new Notify("info", text, timeout));
   }
@@ -241,7 +244,7 @@ public class RoomRepository {
     return notify;
   }
 
-  public SupplierMutableLiveData<RemotePeers> getPeers() {
+  public SupplierMutableLiveData<Peers> getPeers() {
     return peers;
   }
 

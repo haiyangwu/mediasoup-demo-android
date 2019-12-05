@@ -12,6 +12,8 @@ import android.os.Bundle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
@@ -27,10 +29,18 @@ import android.widget.Toast;
 import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
 
+import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
+import org.mediasoup.droid.demo.adapter.PeerAdapter;
+import org.mediasoup.droid.demo.view.MineView;
+import org.mediasoup.droid.lib.model.Peer;
 import org.mediasoup.droid.demo.vm.RoomViewModel;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.model.Notify;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import static org.mediasoup.droid.lib.Utils.getRandomString;
 
@@ -45,10 +55,11 @@ public class RoomActivity extends AppCompatActivity {
   private RoomClient roomClient;
 
   private TextView invitationLink;
-  private TextView roomInfo;
   private ImageView roomState;
-
+  private MineView mineView;
+  private RecyclerView rcRemotePeers;
   private Animation animConnection;
+  private PeerAdapter peerAdapter;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -60,8 +71,13 @@ public class RoomActivity extends AppCompatActivity {
 
     invitationLink = findViewById(R.id.invitation_link);
     roomState = findViewById(R.id.room_state);
-    roomInfo = findViewById(R.id.room_info);
+    mineView = findViewById(R.id.mine_view);
+    rcRemotePeers = findViewById(R.id.remote_peers);
     animConnection = AnimationUtils.loadAnimation(getApplicationContext(), R.anim.ani_connecting);
+
+    rcRemotePeers.setLayoutManager(new LinearLayoutManager(this));
+    peerAdapter = new PeerAdapter();
+    rcRemotePeers.setAdapter(peerAdapter);
 
     invitationLink.setOnClickListener(
         view -> {
@@ -142,9 +158,30 @@ public class RoomActivity extends AppCompatActivity {
         };
     roomViewModel.getState().observe(this, roomStateObserver);
 
-    // Room info.
-    final Observer<String> roomInfoObserver = info -> roomInfo.setText(info);
-    roomViewModel.getRoomInfo().observe(this, roomInfoObserver);
+    // me
+    roomViewModel.getMe().observe(this, me -> mineView.bind(me));
+
+    // Peers
+    roomViewModel
+        .getPeersInfo()
+        .observe(
+            this,
+            remotePeers -> {
+              Map<String, JSONObject> item = remotePeers.getPeersInfo();
+              List<Peer> peers = new ArrayList<>();
+              if (item.isEmpty()) {
+                rcRemotePeers.setVisibility(View.GONE);
+                roomState.setVisibility(View.VISIBLE);
+                peerAdapter.replacePeers(peers);
+              } else {
+                for (Map.Entry<String, JSONObject> info : item.entrySet()) {
+                  peers.add(new Peer(info.getValue()));
+                }
+                peerAdapter.replacePeers(peers);
+                rcRemotePeers.setVisibility(View.VISIBLE);
+                roomState.setVisibility(View.GONE);
+              }
+            });
 
     // Notify
     final Observer<Notify> notifyObserver =

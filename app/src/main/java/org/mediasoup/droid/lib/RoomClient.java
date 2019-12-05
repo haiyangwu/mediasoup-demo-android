@@ -17,7 +17,6 @@ import org.mediasoup.droid.Producer;
 import org.mediasoup.droid.RecvTransport;
 import org.mediasoup.droid.SendTransport;
 import org.mediasoup.droid.Transport;
-import org.mediasoup.droid.lib.lv.RoomRepository;
 import org.protoojs.droid.Message;
 import org.mediasoup.droid.lib.socket.WebSocketTransport;
 import org.webrtc.AudioTrack;
@@ -31,9 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
 import static org.mediasoup.droid.lib.JsonUtils.toJsonObject;
 
-public class RoomClient {
-
-  private static final String TAG = "RoomClient";
+public class RoomClient extends RoomMessageHandler {
 
   public enum RoomState {
     // initial state.
@@ -97,8 +94,8 @@ public class RoomClient {
   private long nextDataChannelTestNumber;
   // Protoo URL.
   private String protooUrl;
-  // protoo-client Peer instance.
-  private Peer protoo;
+  // protoo-client Protoo instance.
+  private Protoo protoo;
   // mediasoup-client Device instance.
   private Device mediasoupDevice;
   // mediasoup Transport for sending.
@@ -123,8 +120,6 @@ public class RoomClient {
   private Map<String, Consumer> consumers;
   // jobs worker handler.
   private Handler workHandler;
-  // Stored Room States.
-  private final @NonNull RoomRepository roomRepository;
 
   public RoomClient(Context context, String roomId, String peerId, String displayName) {
     this(context, roomId, peerId, displayName, false, false, null);
@@ -143,6 +138,7 @@ public class RoomClient {
       boolean forceH264,
       boolean forceVP9,
       RoomOptions options) {
+    super();
     this.context = context.getApplicationContext();
     this.options = options == null ? new RoomOptions() : options;
     this.displayName = displayName;
@@ -150,7 +146,14 @@ public class RoomClient {
     this.consumers = new ConcurrentHashMap<>();
     this.protooUrl = UrlFactory.getProtooUrl(roomId, peerId, forceH264, forceVP9);
     this.consumers = new HashMap<>();
-    this.roomRepository = RoomRepository.getInstance();
+    if (this.options.device == null) {
+      JSONObject deviceInfo = new JSONObject();
+      jsonPut(deviceInfo, "flag", "android");
+      jsonPut(deviceInfo, "name", "Android " + Build.DEVICE);
+      jsonPut(deviceInfo, "version", Build.VERSION.CODENAME);
+      this.options.device = deviceInfo;
+    }
+
     this.roomRepository.setMe(peerId, displayName, this.options.device);
     this.roomRepository.setRoomUrl(
         roomId, UrlFactory.getInvitationLink(roomId, forceH264, forceVP9));
@@ -169,7 +172,7 @@ public class RoomClient {
     Logger.d(TAG, "join() " + this.protooUrl);
     roomRepository.setRoomState(RoomState.CONNECTING);
     WebSocketTransport transport = new WebSocketTransport(protooUrl);
-    protoo = new Peer(transport, peerListener);
+    protoo = new Protoo(transport, peerListener);
   }
 
   @MainThread
@@ -236,7 +239,7 @@ public class RoomClient {
     this.closed = true;
     Logger.d(TAG, "close()");
 
-    // Close protoo Peer
+    // Close protoo Protoo
     if (protoo != null) {
       protoo.close();
     }
@@ -271,8 +274,8 @@ public class RoomClient {
     PeerConnectionUtils.dispose();
   }
 
-  private Peer.Listener peerListener =
-      new Peer.Listener() {
+  private Protoo.Listener peerListener =
+      new Protoo.Listener() {
         @Override
         public void onOpen() {
           workHandler.post(() -> joinImpl());
@@ -286,7 +289,7 @@ public class RoomClient {
 
         @Override
         public void onRequest(
-            @NonNull Message.Request request, @NonNull Peer.ServerRequestHandler handler) {
+            @NonNull Message.Request request, @NonNull Protoo.ServerRequestHandler handler) {
           Logger.d(TAG, "onRequest() " + request.getData().toString());
           handleRequest(request, handler);
         }
@@ -294,13 +297,28 @@ public class RoomClient {
         @Override
         public void onNotification(@NonNull Message.Notification notification) {
           Logger.d(TAG, "onNotification() " + notification.getData().toString());
-          handleNotification(notification);
+          try {
+            handleNotification(notification);
+          } catch (Exception e) {
+            Logger.e(TAG, "handleNotification error.", e);
+          }
         }
 
         @Override
         public void onDisconnected() {
           roomRepository.addNotify("error", "WebSocket disconnected");
           roomRepository.setRoomState(RoomState.CONNECTING);
+
+          // Close mediasoup Transports.
+          if (sendTransport != null) {
+            sendTransport.close();
+            sendTransport = null;
+          }
+
+          if (recvTransport != null) {
+            recvTransport.close();
+            recvTransport = null;
+          }
         }
 
         @Override
@@ -311,24 +329,6 @@ public class RoomClient {
           close();
         }
       };
-
-  private void handleRequest(Message.Request request, Peer.ServerRequestHandler handler) {
-    // TODO (HaiyangWu): handle request msg
-    switch (request.getMethod()) {
-      case "newConsumer":
-        {
-          break;
-        }
-      case "newDataConsumer":
-        {
-          break;
-        }
-    }
-  }
-
-  private void handleNotification(Message.Notification notification) {
-    // TODO (HaiyangWu): handle notification msg
-  }
 
   @WorkerThread
   private void joinImpl() {

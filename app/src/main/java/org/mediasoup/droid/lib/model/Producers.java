@@ -1,5 +1,6 @@
 package org.mediasoup.droid.lib.model;
 
+import org.json.JSONArray;
 import org.mediasoup.droid.Producer;
 
 import java.util.HashMap;
@@ -9,7 +10,7 @@ public class Producers {
 
   public static class ProducersWrapper {
     private Producer producer;
-    private int score;
+    private JSONArray score;
 
     ProducersWrapper(Producer producer) {
       this.producer = producer;
@@ -19,7 +20,7 @@ public class Producers {
       return producer;
     }
 
-    public int getScore() {
+    public JSONArray getScore() {
       return score;
     }
   }
@@ -54,7 +55,7 @@ public class Producers {
     wrapper.producer.resume();
   }
 
-  public void setProducerScore(String producerId, int score) {
+  public void setProducerScore(String producerId, JSONArray score) {
     ProducersWrapper wrapper = producers.get(producerId);
     if (wrapper == null) {
       return;

@@ -8,11 +8,14 @@ public class Me {
   private String displayName;
   private boolean displayNameSet;
   private JSONObject device;
+
   private boolean canSendMic;
   private boolean canSendCam;
   private boolean canChangeCam;
+
   private boolean camInProgress;
   private boolean shareInProgress;
+
   private boolean audioOnly;
   private boolean audioOnlyInProgress;
   private boolean audioMuted;
