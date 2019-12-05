@@ -176,7 +176,8 @@ public class RoomClient extends RoomMessageHandler {
   }
 
   @MainThread
-  private void enableMic() {
+  public void enableMic() {
+    Logger.d(TAG, "enableMic()");
     if (!mediasoupDevice.isLoaded()) {
       Logger.w(TAG, "enableMic() | not loaded");
       return;
@@ -201,10 +202,27 @@ public class RoomClient extends RoomMessageHandler {
             localAudioTrack,
             null,
             null);
+    roomRepository.addProducer(micProducer);
+  }
+
+  public void disableMic() {
+    Logger.d(TAG, "disableMic()");
+    // TODO:
+  }
+
+  public void muteMic() {
+    Logger.d(TAG, "muteMic()");
+    // TODO:
+  }
+
+  public void unmuteMic() {
+    Logger.d(TAG, "unmuteMic()");
+    // TODO:
   }
 
   @MainThread
-  private void enableCam() {
+  public void enableCam() {
+    Logger.d(TAG, "enableCam()");
     if (!mediasoupDevice.isLoaded()) {
       Logger.w(TAG, "enableCam() | not loaded");
       return;
@@ -229,6 +247,88 @@ public class RoomClient extends RoomMessageHandler {
             localVideoTrack,
             null,
             null);
+    roomRepository.addProducer(camProducer);
+  }
+
+  public void disableCam() {
+    Logger.d(TAG, "disableMic()");
+    // TODO:
+  }
+
+  public void changeCam() {
+    Logger.d(TAG, "changeCam()");
+    // TODO:
+  }
+
+  public void enableAudioOnly() {
+    Logger.d(TAG, "enableAudioOnly()");
+    // TODO:
+  }
+
+  public void disableAudioOnly() {
+    Logger.d(TAG, "disableAudioOnly()");
+    // TODO:
+  }
+
+  public void muteAudio() {
+    Logger.d(TAG, "muteAudio()");
+    // TODO:
+  }
+
+  public void unmuteAudio() {
+    Logger.d(TAG, "unmuteAudio()");
+    // TODO:
+  }
+
+  public void restartIce() {
+    Logger.d(TAG, "restartIce()");
+    // TODO:
+  }
+
+  public void setMaxSendingSpatialLayer() {
+    Logger.d(TAG, "setMaxSendingSpatialLayer()");
+    // TODO:
+  }
+
+  public void setConsumerPreferredLayers(String spatialLayer) {
+    Logger.d(TAG, "setConsumerPreferredLayers()");
+    // TODO:
+  }
+
+  public void requestConsumerKeyFrame(
+      String consumerId, String spatialLayer, String temporalLayer) {
+    Logger.d(TAG, "requestConsumerKeyFrame()");
+    // TODO:
+  }
+
+  public void enableChatDataProducer() {
+    Logger.d(TAG, "enableChatDataProducer()");
+    // TODO:
+  }
+
+  public void enableBotDataProducer() {
+    Logger.d(TAG, "enableBotDataProducer()");
+    // TODO:
+  }
+
+  public void sendChatMessage(String txt) {
+    Logger.d(TAG, "sendChatMessage()");
+    // TODO:
+  }
+
+  public void sendBotMessage(String txt) {
+    Logger.d(TAG, "sendBotMessage()");
+    // TODO:
+  }
+
+  public void changeDisplayName(String displayName) {
+    Logger.d(TAG, "changeDisplayName()");
+    // TODO:
+  }
+
+  public void getSendTransportRemoteStats() {
+    Logger.d(TAG, "getSendTransportRemoteStats()");
+    // TODO:
   }
 
   @MainThread
