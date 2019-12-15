@@ -4,42 +4,42 @@ import org.mediasoup.droid.lib.Utils;
 
 public class Notify {
 
-  private String id;
-  private String type;
-  private String text;
-  private int timeout;
+  private String mId;
+  private String mType;
+  private String mText;
+  private int mTimeout;
 
   public Notify(String type, String text) {
     this(type, text, 0);
   }
 
   public Notify(String type, String text, int timeout) {
-    this.id = Utils.getRandomString(6).toLowerCase();
-    this.type = type;
-    this.text = text;
-    this.timeout = timeout;
-    if (this.timeout == 0) {
-      if ("info".equals(this.type)) {
-        this.timeout = 3000;
-      } else if ("error".equals(this.type)) {
-        this.timeout = 5000;
+    this.mId = Utils.getRandomString(6).toLowerCase();
+    this.mType = type;
+    this.mText = text;
+    this.mTimeout = timeout;
+    if (this.mTimeout == 0) {
+      if ("info".equals(this.mType)) {
+        this.mTimeout = 3000;
+      } else if ("error".equals(this.mType)) {
+        this.mTimeout = 5000;
       }
     }
   }
 
   public String getId() {
-    return id;
+    return mId;
   }
 
   public String getType() {
-    return type;
+    return mType;
   }
 
   public String getText() {
-    return text;
+    return mText;
   }
 
   public int getTimeout() {
-    return timeout;
+    return mTimeout;
   }
 }

@@ -1,136 +1,137 @@
 package org.mediasoup.droid.lib.model;
 
-import org.json.JSONObject;
+public class Me extends Info {
 
-public class Me {
+  private String mId;
+  private String mDisplayName;
+  private boolean mDisplayNameSet;
+  private DeviceInfo mDevice;
 
-  private String id;
-  private String displayName;
-  private boolean displayNameSet;
-  private JSONObject device;
+  private boolean mCanSendMic;
+  private boolean mCanSendCam;
+  private boolean mCanChangeCam;
 
-  private boolean canSendMic;
-  private boolean canSendCam;
-  private boolean canChangeCam;
+  private boolean mCamInProgress;
+  private boolean mShareInProgress;
 
-  private boolean camInProgress;
-  private boolean shareInProgress;
+  private boolean mAudioOnly;
+  private boolean mAudioOnlyInProgress;
+  private boolean mAudioMuted;
+  private boolean mRestartIceInProgress;
 
-  private boolean audioOnly;
-  private boolean audioOnlyInProgress;
-  private boolean audioMuted;
-  private boolean restartIceInProgress;
-
+  @Override
   public String getId() {
-    return id;
+    return mId;
   }
 
   public void setId(String id) {
-    this.id = id;
+    this.mId = id;
   }
 
+  @Override
   public String getDisplayName() {
-    return displayName;
+    return mDisplayName;
   }
 
   public void setDisplayName(String displayName) {
-    this.displayName = displayName;
+    this.mDisplayName = displayName;
   }
 
   public boolean isDisplayNameSet() {
-    return displayNameSet;
+    return mDisplayNameSet;
   }
 
   public void setDisplayNameSet(boolean displayNameSet) {
-    this.displayNameSet = displayNameSet;
+    this.mDisplayNameSet = displayNameSet;
   }
 
-  public JSONObject getDevice() {
-    return device;
+  @Override
+  public DeviceInfo getDevice() {
+    return mDevice;
   }
 
-  public void setDevice(JSONObject device) {
-    this.device = device;
+  public void setDevice(DeviceInfo device) {
+    this.mDevice = device;
   }
 
   public boolean isCanSendMic() {
-    return canSendMic;
+    return mCanSendMic;
   }
 
   public void setCanSendMic(boolean canSendMic) {
-    this.canSendMic = canSendMic;
+    this.mCanSendMic = canSendMic;
   }
 
   public boolean isCanSendCam() {
-    return canSendCam;
+    return mCanSendCam;
   }
 
   public void setCanSendCam(boolean canSendCam) {
-    this.canSendCam = canSendCam;
+    this.mCanSendCam = canSendCam;
   }
 
   public boolean isCanChangeCam() {
-    return canChangeCam;
+    return mCanChangeCam;
   }
 
   public void setCanChangeCam(boolean canChangeCam) {
-    this.canChangeCam = canChangeCam;
+    this.mCanChangeCam = canChangeCam;
   }
 
   public boolean isCamInProgress() {
-    return camInProgress;
+    return mCamInProgress;
   }
 
   public void setCamInProgress(boolean camInProgress) {
-    this.camInProgress = camInProgress;
+    this.mCamInProgress = camInProgress;
   }
 
   public boolean isShareInProgress() {
-    return shareInProgress;
+    return mShareInProgress;
   }
 
   public void setShareInProgress(boolean shareInProgress) {
-    this.shareInProgress = shareInProgress;
+    this.mShareInProgress = shareInProgress;
   }
 
   public boolean isAudioOnly() {
-    return audioOnly;
+    return mAudioOnly;
   }
 
   public void setAudioOnly(boolean audioOnly) {
-    this.audioOnly = audioOnly;
+    this.mAudioOnly = audioOnly;
   }
 
   public boolean isAudioOnlyInProgress() {
-    return audioOnlyInProgress;
+    return mAudioOnlyInProgress;
   }
 
   public void setAudioOnlyInProgress(boolean audioOnlyInProgress) {
-    this.audioOnlyInProgress = audioOnlyInProgress;
+    this.mAudioOnlyInProgress = audioOnlyInProgress;
   }
 
   public boolean isAudioMuted() {
-    return audioMuted;
+    return mAudioMuted;
   }
 
   public void setAudioMuted(boolean audioMuted) {
-    this.audioMuted = audioMuted;
+    this.mAudioMuted = audioMuted;
   }
 
   public boolean isRestartIceInProgress() {
-    return restartIceInProgress;
+    return mRestartIceInProgress;
   }
 
   public void setRestartIceInProgress(boolean restartIceInProgress) {
-    this.restartIceInProgress = restartIceInProgress;
+    this.mRestartIceInProgress = restartIceInProgress;
   }
 
   public void clear() {
-    camInProgress = false;
-    shareInProgress = false;
-    audioOnly = false;
-    audioOnlyInProgress = false;
-    audioMuted = false;
-    restartIceInProgress = false;
+    mCamInProgress = false;
+    mShareInProgress = false;
+    mAudioOnly = false;
+    mAudioOnlyInProgress = false;
+    mAudioMuted = false;
+    mRestartIceInProgress = false;
   }
 }

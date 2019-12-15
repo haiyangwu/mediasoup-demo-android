@@ -11,70 +11,83 @@ import java.util.Map;
 public class Producers {
 
   public static class ProducersWrapper {
-    private Producer producer;
-    private JSONArray score;
+
+    public static final String TYPE_CAM = "cam";
+    public static final String TYPE_SHARE = "share";
+
+    private Producer mProducer;
+    private JSONArray mScore;
+    private String mType;
 
     ProducersWrapper(Producer producer) {
-      this.producer = producer;
+      this.mProducer = producer;
     }
 
     public Producer getProducer() {
-      return producer;
+      return mProducer;
     }
 
     public JSONArray getScore() {
-      return score;
+      return mScore;
+    }
+
+    public String getType() {
+      return mType;
+    }
+
+    public void setType(String type) {
+      mType = type;
     }
   }
 
-  private final Map<String, ProducersWrapper> producers;
+  private final Map<String, ProducersWrapper> mProducers;
 
   public Producers() {
-    producers = new HashMap<>();
+    mProducers = new HashMap<>();
   }
 
   public void addProducer(Producer producer) {
-    producers.put(producer.getId(), new ProducersWrapper(producer));
+    mProducers.put(producer.getId(), new ProducersWrapper(producer));
   }
 
   public void removeProducer(String producerId) {
-    producers.remove(producerId);
+    mProducers.remove(producerId);
   }
 
   public void setProducerPaused(String producerId) {
-    ProducersWrapper wrapper = producers.get(producerId);
+    ProducersWrapper wrapper = mProducers.get(producerId);
     if (wrapper == null) {
       return;
     }
-    wrapper.producer.pause();
+    wrapper.mProducer.pause();
   }
 
   public void setProducerResumed(String producerId) {
-    ProducersWrapper wrapper = producers.get(producerId);
+    ProducersWrapper wrapper = mProducers.get(producerId);
     if (wrapper == null) {
       return;
     }
-    wrapper.producer.resume();
+    wrapper.mProducer.resume();
   }
 
   public void setProducerScore(String producerId, JSONArray score) {
-    ProducersWrapper wrapper = producers.get(producerId);
+    ProducersWrapper wrapper = mProducers.get(producerId);
     if (wrapper == null) {
       return;
     }
-    wrapper.score = score;
+    wrapper.mScore = score;
   }
 
-  public Producer filter(@NonNull String kind) {
-    for (ProducersWrapper wrapper : producers.values()) {
-      if (wrapper.producer == null) {
+  public ProducersWrapper filter(@NonNull String kind) {
+    for (ProducersWrapper wrapper : mProducers.values()) {
+      if (wrapper.mProducer == null) {
         continue;
       }
-      if (wrapper.producer.getTrack() == null) {
+      if (wrapper.mProducer.getTrack() == null) {
         continue;
       }
-      if (kind.equals(wrapper.producer.getTrack().kind())) {
-        return wrapper.producer;
+      if (kind.equals(wrapper.mProducer.getTrack().kind())) {
+        return wrapper;
       }
     }
 
@@ -82,6 +95,6 @@ public class Producers {
   }
 
   public void clear() {
-    producers.clear();
+    mProducers.clear();
   }
 }

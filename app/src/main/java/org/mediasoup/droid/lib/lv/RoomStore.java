@@ -10,6 +10,7 @@ import org.mediasoup.droid.Consumer;
 import org.mediasoup.droid.Producer;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.model.Consumers;
+import org.mediasoup.droid.lib.model.DeviceInfo;
 import org.mediasoup.droid.lib.model.Me;
 import org.mediasoup.droid.lib.model.Notify;
 import org.mediasoup.droid.lib.model.Peers;
@@ -21,24 +22,10 @@ import org.mediasoup.droid.lib.model.RoomInfo;
  *
  * <p>Just like mediasoup-demo/app/lib/redux/stateActions.js
  */
-public class RoomContext {
+@SuppressWarnings("unused")
+public class RoomStore {
 
-  private static final String TAG = "RoomContext";
-
-  private static RoomContext instance;
-
-  public static RoomContext getInstance() {
-    if (instance == null) {
-      synchronized (RoomContext.class) {
-        if (instance == null) {
-          instance = new RoomContext();
-        }
-      }
-    }
-    return instance;
-  }
-
-  private RoomContext() {}
+  private static final String TAG = "RoomStore";
 
   // room
   // mediasoup-demo/app/lib/redux/reducers/room.js
@@ -55,8 +42,7 @@ public class RoomContext {
 
   // peers
   // mediasoup-demo/app/lib/redux/reducers/peer.js
-  private SupplierMutableLiveData<Peers> peers =
-      new SupplierMutableLiveData<>(Peers::new);
+  private SupplierMutableLiveData<Peers> peers = new SupplierMutableLiveData<>(Peers::new);
 
   // consumers
   // mediasoup-demo/app/lib/redux/reducers/consumers.js
@@ -75,10 +61,10 @@ public class RoomContext {
         });
   }
 
-  public void setRoomState(RoomClient.RoomState state) {
-    roomInfo.postValue(roomInfo -> roomInfo.setState(state));
+  public void setRoomState(RoomClient.ConnectionState state) {
+    roomInfo.postValue(roomInfo -> roomInfo.setConnectionState(state));
 
-    if (RoomClient.RoomState.CLOSED.equals(state)) {
+    if (RoomClient.ConnectionState.CLOSED.equals(state)) {
       peers.postValue(Peers::clear);
       me.postValue(Me::clear);
       producers.postValue(Producers::clear);
@@ -98,7 +84,7 @@ public class RoomContext {
     roomInfo.postValue(roomInfo -> roomInfo.setFaceDetection(enable));
   }
 
-  public void setMe(String peerId, String displayName, JSONObject device) {
+  public void setMe(String peerId, String displayName, DeviceInfo device) {
     me.postValue(
         me -> {
           me.setId(peerId);
@@ -194,10 +180,12 @@ public class RoomContext {
 
   public void addConsumer(String peerId, Consumer consumer) {
     consumers.postValue(consumers -> consumers.addConsumer(consumer));
+    peers.postValue(peers -> peers.addConsumer(peerId, consumer));
   }
 
   public void removeConsumer(String peerId, String consumerId) {
     consumers.postValue(consumers -> consumers.removeConsumer(consumerId));
+    peers.postValue(peers -> peers.removeConsumer(peerId, consumerId));
   }
 
   public void setConsumerPaused(String consumerId, String originator) {
@@ -208,7 +196,7 @@ public class RoomContext {
     consumers.postValue(consumers -> consumers.setConsumerResumed(consumerId, originator));
   }
 
-  public void setConsumerScore(String consumerId, int score) {
+  public void setConsumerScore(String consumerId, JSONArray score) {
     consumers.postValue(consumers -> consumers.setConsumerScore(consumerId, score));
   }
 
@@ -230,6 +218,10 @@ public class RoomContext {
 
   public void addNotify(String type, String text) {
     notify.postValue(new Notify(type, text));
+  }
+
+  public void addNotify(String text, Throwable throwable) {
+    notify.postValue(new Notify("error", text + throwable.getMessage()));
   }
 
   public SupplierMutableLiveData<RoomInfo> getRoomInfo() {

@@ -5,6 +5,11 @@
     <string name="setting">setting</string>
     <string name="title_activity_room">Room</string>
     <string name="title_activity_settings">Settings</string>
+    <string name="invite_link_copied">Room link copied to the clipboard</string>
+    <string name="audio_producer_copied">Copy audio producer id to clipboard</string>
+    <string name="audio_consumer_copied">Copy audio consumer id to clipboard</string>
+    <string name="video_producer_copied">Copy video producer id to clipboard</string>
+    <string name="video_consumer_copied">Copy video consumer id to clipboard</string>
 
     <!-- Preference Titles -->
     <string name="room_header">Room</string>
@@ -22,11 +27,4 @@
 
     <!-- Device Preferences -->
     <string name="camera">camera</string>
-
-
-    <string name="sync_title">Sync email periodically</string>
-    <string name="attachment_title">Download incoming attachments</string>
-    <string name="attachment_summary_on">Automatically download attachments for incoming emails
-    </string>
-    <string name="attachment_summary_off">Only download attachments when manually requested</string>
 </resources>

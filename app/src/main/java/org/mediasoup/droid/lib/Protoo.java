@@ -13,12 +13,22 @@ public class Protoo extends org.protoojs.droid.Peer {
 
   private static final String TAG = "Protoo";
 
+  interface RequestGenerator {
+    void request(JSONObject req);
+  }
+
   public Protoo(@NonNull WebSocketTransport transport, @NonNull Listener listener) {
     super(transport, listener);
   }
 
   public Observable<String> request(String method) {
     return request(method, new JSONObject());
+  }
+
+  public Observable<String> request(String method, @NonNull RequestGenerator generator) {
+    JSONObject req = new JSONObject();
+    generator.request(req);
+    return request(method, req);
   }
 
   public Observable<String> request(String method, @NonNull JSONObject data) {
@@ -33,6 +43,7 @@ public class Protoo extends org.protoojs.droid.Peer {
                   public void resolve(String data) {
                     if (!emitter.isDisposed()) {
                       emitter.onNext(data);
+                      emitter.onComplete();
                     }
                   }
 

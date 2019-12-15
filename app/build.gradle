@@ -24,6 +24,10 @@ android {
         }
     }
 
+    dataBinding {
+        enabled = true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -46,7 +50,6 @@ dependencies {
     implementation 'com.nabinbhandari.android:permissions:3.8'
     implementation project(':protoo-client')
     implementation project(':mediasoup-client')
-
 
     implementation 'io.crossbar.autobahn:autobahn-android:18.5.1'
     implementation "io.reactivex.rxjava3:rxjava:3.0.0-RC4"

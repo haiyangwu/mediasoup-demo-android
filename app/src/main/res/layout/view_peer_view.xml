@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:bind="http://schemas.android.com/apk/res-auto">
+
+    <data>
+
+        <import type="androidx.core.util.Consumer" />
+
+        <import type="android.text.TextUtils" />
+
+        <import type="android.view.View" />
+
+        <variable
+            name="peerViewProps"
+            type="org.mediasoup.droid.demo.vm.PeerViewProps" />
+    </data>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <org.webrtc.SurfaceViewRenderer
+            android:id="@+id/video_renderer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            bind:edias_render="@{peerViewProps.videoTrack}" />
+
+        <LinearLayout
+            android:id="@+id/video_hidden"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            bind:edias_render_empty="@{peerViewProps.videoTrack}">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="5"
+                android:scaleType="fitCenter"
+                android:src="@drawable/buddy" />
+        </LinearLayout>
+
+        <!-- TODO(HaiyangWu): support info and stats-->
+        <LinearLayout
+            android:id="@+id/icons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="5dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/info"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="4dp"
+                android:src="@drawable/icon_info_white" />
+
+            <ImageView
+                android:id="@+id/stats"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="4dp"
+                android:src="@drawable/stats" />
+        </LinearLayout>
+
+        <!-- TODO(HaiyangWu): support info  box-->
+        <LinearLayout
+            android:id="@+id/box"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Audio" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{peerViewProps.audioProducerId}"
+                    android:textColor="#44c5d6"
+                    android:textStyle="italic"
+                    android:visibility="@{!TextUtils.isEmpty(peerViewProps.audioProducerId) ? View.VISIBLE : View.GONE}" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{peerViewProps.audioConsumerId}"
+                    android:visibility="@{!TextUtils.isEmpty(peerViewProps.audioConsumerId) ? View.VISIBLE : View.GONE}" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Video" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{peerViewProps.videoProducerId}"
+                    android:textColor="#44c5d6"
+                    android:textStyle="italic"
+                    android:visibility="@{!TextUtils.isEmpty(peerViewProps.videoProducerId) ? View.VISIBLE : View.GONE}" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{peerViewProps.videoConsumerId}"
+                    android:visibility="@{!TextUtils.isEmpty(peerViewProps.videoConsumerId) ? View.VISIBLE : View.GONE}" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </LinearLayout>
+
+
+        <LinearLayout
+            android:id="@+id/peer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:gravity="end"
+            android:orientation="vertical"
+            android:padding="5dp">
+
+            <EditText
+                android:id="@+id/me_display_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@{peerViewProps.peer.displayName}"
+                android:visibility="@{peerViewProps.me ? View.VISIBLE : View.GONE}" />
+
+            <TextView
+                android:id="@+id/peer_display_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:text="@{peerViewProps.peer.displayName}"
+                android:textColor="@color/text_color"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="@{!peerViewProps.me ? View.VISIBLE : View.GONE}" />
+
+            <TextView
+                android:id="@+id/device_version"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="5dp"
+                android:drawablePadding="5dp"
+                android:gravity="center_vertical"
+                android:textColor="@color/text_u_color"
+                bind:edias_device="@{peerViewProps.peer.device}" />
+        </LinearLayout>
+
+    </FrameLayout>
+</layout>

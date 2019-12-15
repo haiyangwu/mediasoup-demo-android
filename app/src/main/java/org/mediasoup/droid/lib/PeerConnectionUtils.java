@@ -1,6 +1,7 @@
 package org.mediasoup.droid.lib;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.Log;
 
 import org.mediasoup.droid.Logger;
@@ -16,7 +17,6 @@ import org.webrtc.EglBase;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SurfaceTextureHelper;
-import org.webrtc.VideoCapturer;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.VideoSource;
@@ -32,7 +32,8 @@ public class PeerConnectionUtils {
 
   private static AudioSource mAudioSource;
   private static VideoSource mVideoSource;
-  private static VideoCapturer mCamCapture;
+  private static CameraVideoCapturer mCamCapture;
+  private static String mPreferCameraFace;
 
   // PeerConnection factory creation.
   static void createPeerConnectionFactory(Context context) {
@@ -130,6 +131,10 @@ public class PeerConnectionUtils {
     mAudioSource = mPeerConnectionFactory.createAudioSource(new MediaConstraints());
   }
 
+  public static void setPreferCameraFace(String preferCameraFace) {
+    mPreferCameraFace = preferCameraFace;
+  }
+
   private static void createCamCapture(Context context) {
     boolean isCamera2Supported = Camera2Enumerator.isSupported(context);
     CameraEnumerator cameraEnumerator;
@@ -141,10 +146,22 @@ public class PeerConnectionUtils {
     }
     final String[] deviceNames = cameraEnumerator.getDeviceNames();
     for (String deviceName : deviceNames) {
-      if (cameraEnumerator.isFrontFacing(deviceName)) {
+      boolean needFrontFacing = "front".endsWith(mPreferCameraFace);
+      String selectedDeviceName = null;
+      if (needFrontFacing) {
+        if (cameraEnumerator.isFrontFacing(deviceName)) {
+          selectedDeviceName = deviceName;
+        }
+      } else {
+        if (!cameraEnumerator.isFrontFacing(deviceName)) {
+          selectedDeviceName = deviceName;
+        }
+      }
+
+      if (!TextUtils.isEmpty(selectedDeviceName)) {
         mCamCapture =
             cameraEnumerator.createCapturer(
-                deviceName,
+                selectedDeviceName,
                 new CameraVideoCapturer.CameraEventsHandler() {
                   @Override
                   public void onCameraError(String s) {
@@ -176,11 +193,18 @@ public class PeerConnectionUtils {
                     Logger.d(TAG, "onCameraClosed");
                   }
                 });
+        break;
       }
     }
 
     if (mCamCapture == null) {
       throw new IllegalStateException("Failed to create Camera Capture");
+    }
+  }
+
+  public static void switchCam(CameraVideoCapturer.CameraSwitchHandler switchHandler) {
+    if (mCamCapture != null) {
+      mCamCapture.switchCamera(switchHandler);
     }
   }
 

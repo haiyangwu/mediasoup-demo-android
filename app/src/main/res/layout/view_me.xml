@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:bind="http://schemas.android.com/apk/res-auto">
+
+    <data>
+
+        <import type="android.view.View" />
+
+        <variable
+            name="meProps"
+            type="org.mediasoup.droid.demo.vm.MeProps" />
+
+    </data>
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        bind:cardBackgroundColor="@color/trans_bg"
+        bind:cardCornerRadius="2dp"
+        bind:cardUseCompatPadding="true">
+
+        <include
+            android:id="@+id/peer_view"
+            layout="@layout/view_peer_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            bind:peerViewProps="@{meProps}" />
+
+        <LinearLayout
+            android:id="@+id/controls"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="right"
+            android:gravity="center_vertical"
+            android:padding="5dp"
+            android:visibility="@{meProps.connected ? View.VISIBLE : View.GONE}">
+
+            <ImageView
+                android:id="@+id/mic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/bg_media_box"
+                android:padding="5dp"
+                android:src="@drawable/icon_mic"
+                bind:edias_mic_state="@{meProps.micState}" />
+
+            <ImageView
+                android:id="@+id/cam"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/bg_media_box"
+                android:clickable="@{!(meProps.me.camInProgress || meProps.me.shareInProgress)}"
+                android:padding="5dp"
+                android:src="@drawable/icon_webcam"
+                bind:edias_cam_state="@{meProps.camState}" />
+
+            <ImageView
+                android:id="@+id/change_cam"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/bg_media_box"
+                android:clickable="@{!(meProps.me.camInProgress || meProps.me.shareInProgress)}"
+                android:padding="5dp"
+                android:src="@drawable/icon_change_cam"
+                bind:edias_change_came_state="@{meProps.camState}" />
+
+            <!-- TODO(HaiyangWu): support screen share -->
+            <ImageView
+                android:id="@+id/share"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="2dp"
+                android:background="@drawable/bg_media_box"
+                android:clickable="@{!(meProps.me.camInProgress || meProps.me.shareInProgress)}"
+                android:padding="5dp"
+                android:src="@drawable/icon_share"
+                android:visibility="gone"
+                bind:edias_share_state="@{meProps.shareState}" />
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+</layout>

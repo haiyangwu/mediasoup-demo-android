@@ -1,61 +1,62 @@
 package org.mediasoup.droid.lib.model;
 
-import org.mediasoup.droid.lib.RoomClient;
+import static org.mediasoup.droid.lib.RoomClient.ConnectionState;
+import static org.mediasoup.droid.lib.RoomClient.ConnectionState.NEW;
 
 public class RoomInfo {
 
-  private String url;
-  private String roomId;
-  private RoomClient.RoomState state = RoomClient.RoomState.NEW;
-  private String activeSpeakerId;
-  private String statsPeerId;
-  private boolean faceDetection = false;
+  private String mUrl;
+  private String mRoomId;
+  private ConnectionState mConnectionState = NEW;
+  private String mActiveSpeakerId;
+  private String mStatsPeerId;
+  private boolean mFaceDetection = false;
 
   public String getUrl() {
-    return url;
+    return mUrl;
   }
 
   public void setUrl(String url) {
-    this.url = url;
+    this.mUrl = url;
   }
 
   public String getRoomId() {
-    return roomId;
+    return mRoomId;
   }
 
   public void setRoomId(String roomId) {
-    this.roomId = roomId;
+    this.mRoomId = roomId;
   }
 
-  public RoomClient.RoomState getState() {
-    return state;
+  public ConnectionState getConnectionState() {
+    return mConnectionState;
   }
 
-  public void setState(RoomClient.RoomState state) {
-    this.state = state;
+  public void setConnectionState(ConnectionState connectionState) {
+    this.mConnectionState = connectionState;
   }
 
   public String getActiveSpeakerId() {
-    return activeSpeakerId;
+    return mActiveSpeakerId;
   }
 
   public void setActiveSpeakerId(String activeSpeakerId) {
-    this.activeSpeakerId = activeSpeakerId;
+    this.mActiveSpeakerId = activeSpeakerId;
   }
 
   public String getStatsPeerId() {
-    return statsPeerId;
+    return mStatsPeerId;
   }
 
   public void setStatsPeerId(String statsPeerId) {
-    this.statsPeerId = statsPeerId;
+    this.mStatsPeerId = statsPeerId;
   }
 
   public boolean isFaceDetection() {
-    return faceDetection;
+    return mFaceDetection;
   }
 
   public void setFaceDetection(boolean faceDetection) {
-    this.faceDetection = faceDetection;
+    this.mFaceDetection = faceDetection;
   }
 }

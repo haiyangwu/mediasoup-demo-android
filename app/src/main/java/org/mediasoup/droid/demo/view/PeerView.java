@@ -2,22 +2,25 @@ package org.mediasoup.droid.demo.view;
 
 import android.content.Context;
 import android.os.Build;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
-import android.view.View;
-import android.widget.CheckBox;
 import android.widget.RelativeLayout;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.databinding.DataBindingUtil;
 
-import org.json.JSONObject;
 import org.mediasoup.droid.demo.R;
+import org.mediasoup.droid.demo.databinding.ViewPeerBinding;
+import org.mediasoup.droid.demo.databinding.ViewPeerViewBinding;
+import org.mediasoup.droid.demo.vm.MeProps;
+import org.mediasoup.droid.demo.vm.PeerProps;
 import org.mediasoup.droid.lib.PeerConnectionUtils;
-import org.mediasoup.droid.lib.model.Peer;
-import org.webrtc.SurfaceViewRenderer;
+import org.mediasoup.droid.lib.RoomClient;
+import org.webrtc.RendererCommon;
 
 public class PeerView extends RelativeLayout {
 
@@ -43,74 +46,31 @@ public class PeerView extends RelativeLayout {
     init(context);
   }
 
-  private CheckBox cbInfo;
-  private View vStats;
-  private View vMicOff;
-  private View vCamOff;
-  private SurfaceViewRenderer svVideoRenderer;
-  private View vVideoHidden;
-  private TextView tvDisplayName;
-  private TextView tvDeviceVersion;
+  ViewPeerBinding mBinding;
 
   private void init(Context context) {
-    LayoutInflater.from(context).inflate(R.layout.view_peerview, this);
-
-    cbInfo = findViewById(R.id.info);
-    vStats = findViewById(R.id.stats);
-    vMicOff = findViewById(R.id.mic_off);
-    vCamOff = findViewById(R.id.cam_off);
-    svVideoRenderer = findViewById(R.id.video_renderer);
-    svVideoRenderer.init(PeerConnectionUtils.getEglContext(), null);
-    vVideoHidden = findViewById(R.id.video_hidden);
-    tvDisplayName = findViewById(R.id.display_name);
-    tvDeviceVersion = findViewById(R.id.device_version);
+    mBinding =
+        DataBindingUtil.inflate(LayoutInflater.from(context), R.layout.view_peer, this, true);
+    mBinding.peerView.videoRenderer.init(PeerConnectionUtils.getEglContext(), null);
   }
 
-  public void receive(Peer peer) {
-    if (peer == null) {
-      return;
-    }
+  public void setProps(PeerProps props, RoomClient roomClient) {
+    // set view model into included layout
+    mBinding.peerView.setPeerViewProps(props);
 
-    JSONObject info = peer.getInfo();
-    String displayName = info.optString("displayName");
-    tvDisplayName.setText(displayName);
+    // register click listener.
+    mBinding.peerView.info.setOnClickListener(
+        view -> {
+          Boolean showInfo = props.getShowInfo().get();
+          props.getShowInfo().set(showInfo != null && showInfo ? Boolean.FALSE : Boolean.TRUE);
+        });
 
-    JSONObject device = info.optJSONObject("device");
-    int deviceIcon = R.drawable.ic_unknown;
-    if (device != null) {
-      String deviceFlag = device.optString("flag").toLowerCase();
-      String deviceName = device.optString("name");
-      String deviceVersion = device.optString("version");
-      switch (deviceFlag) {
-        case "chrome":
-          deviceIcon = R.mipmap.chrome;
-          break;
-        case "firefox":
-          deviceIcon = R.mipmap.firefox;
-          break;
-        case "safari":
-          deviceIcon = R.mipmap.safari;
-          break;
-        case "opera":
-          deviceIcon = R.mipmap.opera;
-          break;
-        case "edge":
-          deviceIcon = R.mipmap.edge;
-          break;
-        case "android":
-          deviceIcon = R.mipmap.android;
-          break;
-      }
-      tvDeviceVersion.setText(deviceName + " " + deviceVersion);
-    } else {
-      tvDeviceVersion.setText("");
-    }
-    tvDeviceVersion.setCompoundDrawablesWithIntrinsicBounds(deviceIcon, 0, 0, 0);
+    mBinding.peerView.stats.setOnClickListener(
+        view -> {
+          // TODO(HaiyangWU): Handle inner click event;
+        });
 
-    vVideoHidden.setVisibility(View.VISIBLE);
-    svVideoRenderer.setVisibility(View.INVISIBLE);
-
-    vMicOff.setVisibility(peer.isAudioMuted() ? View.VISIBLE : View.GONE);
-    vCamOff.setVisibility(!peer.isVideoVisible() ? View.VISIBLE : View.GONE);
+    // set view model
+    mBinding.setPeerProps(props);
   }
 }

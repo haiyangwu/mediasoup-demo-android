@@ -1,51 +1,51 @@
 package org.mediasoup.droid.demo.vm;
 
 import android.app.Application;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 
 import androidx.annotation.NonNull;
-import androidx.lifecycle.AndroidViewModel;
-import androidx.lifecycle.LiveData;
-import androidx.lifecycle.Transformations;
+import androidx.databinding.ObservableField;
+import androidx.lifecycle.LifecycleOwner;
 
+import org.mediasoup.droid.demo.R;
 import org.mediasoup.droid.lib.RoomClient;
-import org.mediasoup.droid.lib.lv.RoomContext;
-import org.mediasoup.droid.lib.lv.SupplierMutableLiveData;
-import org.mediasoup.droid.lib.model.Me;
-import org.mediasoup.droid.lib.model.Notify;
-import org.mediasoup.droid.lib.model.Peers;
+import org.mediasoup.droid.lib.lv.RoomStore;
 import org.mediasoup.droid.lib.model.RoomInfo;
 
-public class RoomProps extends AndroidViewModel {
+public class RoomProps extends EdiasProps {
 
-  private RoomContext repository;
-  private LiveData<String> invitationLink;
-  private LiveData<RoomClient.RoomState> state;
+  private final Animation mAnimation;
+  private ObservableField<String> mInvitationLink;
+  private ObservableField<RoomClient.ConnectionState> mConnectionState;
 
-  public RoomProps(@NonNull Application application) {
-    super(application);
-
-    repository = RoomContext.getInstance();
-    invitationLink = Transformations.map(repository.getRoomInfo(), RoomInfo::getUrl);
-    state = Transformations.map(repository.getRoomInfo(), RoomInfo::getState);
+  public RoomProps(@NonNull Application application, @NonNull RoomStore roomStore) {
+    super(application, roomStore);
+    mInvitationLink = new ObservableField<>();
+    mConnectionState = new ObservableField<>();
+    mAnimation = AnimationUtils.loadAnimation(getApplication(), R.anim.ani_connecting);
   }
 
-  public LiveData<String> getInvitationLink() {
-    return invitationLink;
+  public Animation getAnimation() {
+    return mAnimation;
   }
 
-  public SupplierMutableLiveData<Peers> getPeersInfo() {
-    return repository.getPeers();
+  public ObservableField<String> getInvitationLink() {
+    return mInvitationLink;
   }
 
-  public LiveData<RoomClient.RoomState> getState() {
-    return state;
+  public ObservableField<RoomClient.ConnectionState> getConnectionState() {
+    return mConnectionState;
   }
 
-  public LiveData<Notify> getNotify() {
-    return repository.getNotify();
+  private void receiveState(RoomInfo roomInfo) {
+    mConnectionState.set(roomInfo.getConnectionState());
+    mInvitationLink.set(roomInfo.getUrl());
   }
 
-  public LiveData<Me> getMe() {
-    return repository.getMe();
+  @Override
+  public void connect(LifecycleOwner owner) {
+    RoomStore roomStore = getRoomStore();
+    roomStore.getRoomInfo().observe(owner, this::receiveState);
   }
 }

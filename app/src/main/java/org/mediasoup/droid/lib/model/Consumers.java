@@ -1,5 +1,6 @@
 package org.mediasoup.droid.lib.model;
 
+import org.json.JSONArray;
 import org.mediasoup.droid.Consumer;
 
 import java.util.HashMap;
@@ -8,29 +9,30 @@ import java.util.Map;
 public class Consumers {
 
   public static class ConsumerWrapper {
-    private Consumer consumer;
-    private boolean locallyPaused;
-    private boolean remotelyPaused;
-    private int score;
+
+    private boolean mLocallyPaused;
+    private boolean mRemotelyPaused;
+    private Consumer mConsumer;
+    private JSONArray mScore;
 
     ConsumerWrapper(Consumer consumer) {
-      this.consumer = consumer;
+      this.mConsumer = consumer;
     }
 
     public Consumer getConsumer() {
-      return consumer;
+      return mConsumer;
     }
 
     public boolean isLocallyPaused() {
-      return locallyPaused;
+      return mLocallyPaused;
     }
 
     public boolean isRemotelyPaused() {
-      return remotelyPaused;
+      return mRemotelyPaused;
     }
 
-    public int getScore() {
-      return score;
+    public JSONArray getScore() {
+      return mScore;
     }
   }
 
@@ -55,9 +57,9 @@ public class Consumers {
     }
 
     if ("local".equals(originator)) {
-      wrapper.locallyPaused = true;
+      wrapper.mLocallyPaused = true;
     } else {
-      wrapper.remotelyPaused = true;
+      wrapper.mRemotelyPaused = true;
     }
   }
 
@@ -68,19 +70,23 @@ public class Consumers {
     }
 
     if ("local".equals(originator)) {
-      wrapper.locallyPaused = false;
+      wrapper.mLocallyPaused = false;
     } else {
-      wrapper.remotelyPaused = false;
+      wrapper.mRemotelyPaused = false;
     }
   }
 
-  public void setConsumerScore(String consumerId, int score) {
+  public void setConsumerScore(String consumerId, JSONArray score) {
     ConsumerWrapper wrapper = consumers.get(consumerId);
     if (wrapper == null) {
       return;
     }
 
-    wrapper.score = score;
+    wrapper.mScore = score;
+  }
+
+  public ConsumerWrapper getConsumer(String consumerId) {
+    return consumers.get(consumerId);
   }
 
   public void clear() {

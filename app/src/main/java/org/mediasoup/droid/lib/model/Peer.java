@@ -1,121 +1,60 @@
 package org.mediasoup.droid.lib.model;
 
+import androidx.annotation.NonNull;
+
 import org.json.JSONObject;
-import org.webrtc.AudioTrack;
-import org.webrtc.VideoTrack;
 
-public class Peer {
+import java.util.HashSet;
+import java.util.Set;
 
-  private String audioConsumerId;
-  private String videoConsumerId;
-  private JSONObject info;
-  private AudioTrack audioTrack;
-  private VideoTrack videoTrack;
-  private boolean audioMuted;
-  private boolean videoVisible;
-  private boolean videoMultiLayer;
-  private String audioCodec;
-  private String videoCodec;
-  private int audioScore;
-  private int videoScore;
+public class Peer extends Info {
 
-  public Peer(JSONObject info) {
-    this.info = info;
+  private String mId;
+  private String mDisplayName;
+  private DeviceInfo mDevice;
+
+  private Set<String> consumers;
+
+  public Peer(@NonNull JSONObject info) {
+    mId = info.optString("id");
+    mDisplayName = info.optString("displayName");
+    JSONObject deviceInfo = info.optJSONObject("device");
+    if (deviceInfo != null) {
+      mDevice =
+          new DeviceInfo()
+              .setFlag(deviceInfo.optString("flag"))
+              .setName(deviceInfo.optString("name"))
+              .setVersion(deviceInfo.optString("version"));
+    } else {
+      mDevice = DeviceInfo.unknownDevice();
+    }
+    consumers = new HashSet<>();
   }
 
-  public String getAudioConsumerId() {
-    return audioConsumerId;
+  @Override
+  public String getId() {
+    return mId;
   }
 
-  public void setAudioConsumerId(String audioConsumerId) {
-    this.audioConsumerId = audioConsumerId;
+  @Override
+  public String getDisplayName() {
+    return mDisplayName;
   }
 
-  public String getVideoConsumerId() {
-    return videoConsumerId;
+  @Override
+  public DeviceInfo getDevice() {
+    return mDevice;
   }
 
-  public void setVideoConsumerId(String videoConsumerId) {
-    this.videoConsumerId = videoConsumerId;
+  public void setDisplayName(String displayName) {
+    this.mDisplayName = displayName;
   }
 
-  public JSONObject getInfo() {
-    return info;
+  public void setDevice(DeviceInfo device) {
+    this.mDevice = device;
   }
 
-  public void setInfo(JSONObject info) {
-    this.info = info;
-  }
-
-  public AudioTrack getAudioTrack() {
-    return audioTrack;
-  }
-
-  public void setAudioTrack(AudioTrack audioTrack) {
-    this.audioTrack = audioTrack;
-  }
-
-  public VideoTrack getVideoTrack() {
-    return videoTrack;
-  }
-
-  public void setVideoTrack(VideoTrack videoTrack) {
-    this.videoTrack = videoTrack;
-  }
-
-  public boolean isAudioMuted() {
-    return audioMuted;
-  }
-
-  public void setAudioMuted(boolean audioMuted) {
-    this.audioMuted = audioMuted;
-  }
-
-  public boolean isVideoVisible() {
-    return videoVisible;
-  }
-
-  public void setVideoVisible(boolean videoVisible) {
-    this.videoVisible = videoVisible;
-  }
-
-  public boolean isVideoMultiLayer() {
-    return videoMultiLayer;
-  }
-
-  public void setVideoMultiLayer(boolean videoMultiLayer) {
-    this.videoMultiLayer = videoMultiLayer;
-  }
-
-  public String getAudioCodec() {
-    return audioCodec;
-  }
-
-  public void setAudioCodec(String audioCodec) {
-    this.audioCodec = audioCodec;
-  }
-
-  public String getVideoCodec() {
-    return videoCodec;
-  }
-
-  public void setVideoCodec(String videoCodec) {
-    this.videoCodec = videoCodec;
-  }
-
-  public int getAudioScore() {
-    return audioScore;
-  }
-
-  public void setAudioScore(int audioScore) {
-    this.audioScore = audioScore;
-  }
-
-  public int getVideoScore() {
-    return videoScore;
-  }
-
-  public void setVideoScore(int videoScore) {
-    this.videoScore = videoScore;
+  public Set<String> getConsumers() {
+    return consumers;
   }
 }
