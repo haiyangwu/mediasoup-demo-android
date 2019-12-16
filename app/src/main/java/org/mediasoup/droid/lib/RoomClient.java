@@ -3,6 +3,8 @@ package org.mediasoup.droid.lib;
 import android.content.Context;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
+
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
@@ -17,8 +19,8 @@ import org.mediasoup.droid.RecvTransport;
 import org.mediasoup.droid.SendTransport;
 import org.mediasoup.droid.Transport;
 import org.mediasoup.droid.lib.lv.RoomStore;
-import org.protoojs.droid.Message;
 import org.mediasoup.droid.lib.socket.WebSocketTransport;
+import org.protoojs.droid.Message;
 import org.webrtc.AudioTrack;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.VideoTrack;
@@ -27,9 +29,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import io.reactivex.rxjava3.disposables.CompositeDisposable;
-import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.disposables.CompositeDisposable;
 
 import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
 import static org.mediasoup.droid.lib.JsonUtils.toJsonObject;
@@ -86,6 +88,7 @@ public class RoomClient extends RoomMessageHandler {
   private Map<String, Consumer> mConsumers;
   // jobs worker handler.
   private Handler mWorkHandler;
+  private Handler mMainHandler;
   // Disposable Composite. used to cancel running
   private CompositeDisposable mCompositeDisposable = new CompositeDisposable();
 
@@ -132,6 +135,7 @@ public class RoomClient extends RoomMessageHandler {
     HandlerThread handlerThread = new HandlerThread("worker");
     handlerThread.start();
     mWorkHandler = new Handler(handlerThread.getLooper());
+    mMainHandler = new Handler(Looper.getMainLooper());
   }
 
   @MainThread
@@ -164,7 +168,7 @@ public class RoomClient extends RoomMessageHandler {
     mMicProducer =
         mSendTransport.produce(
             producer -> {
-              Logger.w(TAG, "onTransportClose()");
+              Logger.e(TAG, "onTransportClose(), micProducer");
             },
             mLocalAudioTrack,
             null,
@@ -228,7 +232,7 @@ public class RoomClient extends RoomMessageHandler {
     mCamProducer =
         mSendTransport.produce(
             producer -> {
-              Logger.w(TAG, "onTransportClose()");
+              Logger.e(TAG, "onTransportClose(), camProducer");
             },
             mLocalVideoTrack,
             null,
@@ -373,22 +377,17 @@ public class RoomClient extends RoomMessageHandler {
     // Close mediasoup Transports.
     if (mSendTransport != null) {
       mSendTransport.close();
+      mSendTransport.dispose();
     }
     if (mRecvTransport != null) {
       mRecvTransport.close();
+      mRecvTransport.dispose();
     }
 
-    mStore.setRoomState(ConnectionState.CLOSED);
-  }
-
-  public void dispose() {
     // dispose device.
     if (mMediasoupDevice != null) {
       mMediasoupDevice.dispose();
     }
-
-    // quit worker handler thread.
-    mWorkHandler.getLooper().quit();
 
     // dispose track and media source.
     if (mLocalAudioTrack != null) {
@@ -399,6 +398,13 @@ public class RoomClient extends RoomMessageHandler {
       mLocalVideoTrack.dispose();
       mLocalVideoTrack = null;
     }
+
+    mStore.setRoomState(ConnectionState.CLOSED);
+  }
+
+  public void dispose() {
+    // quit worker handler thread.
+    mWorkHandler.getLooper().quit();
 
     // dispose request.
     mCompositeDisposable.dispose();
@@ -467,9 +473,6 @@ public class RoomClient extends RoomMessageHandler {
   private void joinImpl() {
     Logger.d(TAG, "joinImpl()");
     mStore.setRoomState(ConnectionState.CONNECTED);
-//    if (mMediasoupDevice != null) {
-//      mMediasoupDevice.dispose();
-//    }
     mMediasoupDevice = new Device();
     mCompositeDisposable.add(
         mProtoo
@@ -480,15 +483,16 @@ public class RoomClient extends RoomMessageHandler {
                   return mMediasoupDevice.getRtpCapabilities();
                 })
             .flatMap(
-                rtpCapabilities -> {
-                  JSONObject request = new JSONObject();
-                  jsonPut(request, "displayName", mDisplayName);
-                  jsonPut(request, "device", mOptions.getDevice().toJSONObject());
-                  jsonPut(request, "rtpCapabilities", toJsonObject(rtpCapabilities));
-                  // TODO (HaiyangWu): add sctpCapabilities
-                  jsonPut(request, "sctpCapabilities", "");
-                  return mProtoo.request("join", request);
-                })
+                rtpCapabilities ->
+                    mProtoo.request(
+                        "join",
+                        req -> {
+                          jsonPut(req, "displayName", mDisplayName);
+                          jsonPut(req, "device", mOptions.getDevice().toJSONObject());
+                          jsonPut(req, "rtpCapabilities", toJsonObject(rtpCapabilities));
+                          // TODO (HaiyangWu): add sctpCapabilities
+                          jsonPut(req, "sctpCapabilities", "");
+                        }))
             .subscribe(
                 res -> {
                   mStore.setRoomState(ConnectionState.CONNECTED);
@@ -500,20 +504,21 @@ public class RoomClient extends RoomMessageHandler {
                     JSONObject peer = peers.getJSONObject(i);
                     mStore.addPeer(peer.optString("id"), peer);
                   }
+
                   if (mOptions.isProduce()) {
                     boolean canSendMic = mMediasoupDevice.canProduce("audio");
                     boolean canSendCam = mMediasoupDevice.canProduce("video");
                     mStore.setMediaCapabilities(canSendMic, canSendCam);
-                    //
                     mWorkHandler.post(this::createSendTransport);
                   }
+
                   if (mOptions.isConsume()) {
                     mWorkHandler.post(this::createRecvTransport);
                   }
                 },
-                throwable -> {
-                  logError("joinRoom() failed", throwable);
-                  mStore.addNotify("error", "Could not join the room: " + throwable.getMessage());
+                t -> {
+                  logError("joinRoom() failed", t);
+                  mStore.addNotify("error", "Could not join the room: " + t.getMessage());
                   this.close();
                 }));
   }
@@ -521,19 +526,21 @@ public class RoomClient extends RoomMessageHandler {
   @WorkerThread
   private void createSendTransport() {
     Logger.d(TAG, "createSendTransport()");
-    JSONObject request = new JSONObject();
-    jsonPut(request, "forceTcp", mOptions.isForceTcp());
-    jsonPut(request, "producing", true);
-    jsonPut(request, "consuming", false);
-    // TODO: sctpCapabilities
-    jsonPut(request, "sctpCapabilities", "");
-
-    mProtoo
-        .request("createWebRtcTransport", request)
-        .map(JSONObject::new)
-        .subscribe(
-            info -> mWorkHandler.post(() -> createLocalSendTransport(info)),
-            throwable -> logError("createWebRtcTransport for mSendTransport failed", throwable));
+    mCompositeDisposable.add(
+        mProtoo
+            .request(
+                "createWebRtcTransport",
+                (req -> {
+                  jsonPut(req, "forceTcp", mOptions.isForceTcp());
+                  jsonPut(req, "producing", true);
+                  jsonPut(req, "consuming", false);
+                  // TODO: sctpCapabilities
+                  jsonPut(req, "sctpCapabilities", "");
+                }))
+            .map(JSONObject::new)
+            .subscribe(
+                info -> mWorkHandler.post(() -> createLocalSendTransport(info)),
+                t -> logError("createWebRtcTransport for mSendTransport failed", t)));
   }
 
   @WorkerThread
@@ -545,6 +552,7 @@ public class RoomClient extends RoomMessageHandler {
     String dtlsParameters = transportInfo.optString("dtlsParameters");
     String sctpParameters = transportInfo.optString("sctpParameters");
 
+    // TODO(HaiyangWu): close the pre if not null ???
     mSendTransport =
         mMediasoupDevice.createSendTransport(
             sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
@@ -558,17 +566,22 @@ public class RoomClient extends RoomMessageHandler {
   @WorkerThread
   private void createRecvTransport() {
     Logger.d(TAG, "createRecvTransport()");
-    JSONObject request = new JSONObject();
-    jsonPut(request, "forceTcp", mOptions.isForceTcp());
-    jsonPut(request, "producing", false);
-    jsonPut(request, "consuming", true);
-    jsonPut(request, "sctpCapabilities", "");
 
-    mProtoo
-        .request("createWebRtcTransport", request)
-        .map(JSONObject::new)
-        .doOnError(t -> logError("createWebRtcTransport for mRecvTransport failed", t))
-        .subscribe(info -> mWorkHandler.post(() -> createLocalRecvTransport(info)));
+    mCompositeDisposable.add(
+        mProtoo
+            .request(
+                "createWebRtcTransport",
+                req -> {
+                  jsonPut(req, "forceTcp", mOptions.isForceTcp());
+                  jsonPut(req, "producing", false);
+                  jsonPut(req, "consuming", true);
+                  // TODO (HaiyangWu): add sctpCapabilities
+                  jsonPut(req, "sctpCapabilities", "");
+                })
+            .map(JSONObject::new)
+            .subscribe(
+                info -> mWorkHandler.post(() -> createLocalRecvTransport(info)),
+                t -> logError("createWebRtcTransport for mRecvTransport failed", t)));
   }
 
   @WorkerThread
@@ -580,6 +593,7 @@ public class RoomClient extends RoomMessageHandler {
     String dtlsParameters = transportInfo.optString("dtlsParameters");
     String sctpParameters = transportInfo.optString("sctpParameters");
 
+    // TODO(HaiyangWu): close the pre if not null ???
     mRecvTransport =
         mMediasoupDevice.createRecvTransport(
             recvTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
@@ -594,15 +608,14 @@ public class RoomClient extends RoomMessageHandler {
         public String onProduce(
             Transport transport, String kind, String rtpParameters, String appData) {
           Logger.d(listenerTAG, "onProduce() ");
-
-          JSONObject request = new JSONObject();
-          jsonPut(request, "transportId", transport.getId());
-          jsonPut(request, "kind", kind);
-          jsonPut(request, "rtpParameters", toJsonObject(rtpParameters));
-          jsonPut(request, "appData", appData);
-
-          Logger.d(listenerTAG, "send produce request with " + request.toString());
-          String producerId = fetchProduceId(request);
+          String producerId =
+              fetchProduceId(
+                  req -> {
+                    jsonPut(req, "transportId", transport.getId());
+                    jsonPut(req, "kind", kind);
+                    jsonPut(req, "rtpParameters", toJsonObject(rtpParameters));
+                    jsonPut(req, "appData", appData);
+                  });
           Logger.d(listenerTAG, "producerId: " + producerId);
           return producerId;
         }
@@ -610,17 +623,17 @@ public class RoomClient extends RoomMessageHandler {
         @Override
         public void onConnect(Transport transport, String dtlsParameters) {
           Logger.d(listenerTAG + "_send", "onConnect()");
-          JSONObject request = new JSONObject();
-          jsonPut(request, "transportId", transport.getId());
-          jsonPut(request, "dtlsParameters", toJsonObject(dtlsParameters));
-          mProtoo
-              .request("connectWebRtcTransport", request)
-              // TODO (HaiyangWu): handle error
-              .doOnError(t -> logError("connectWebRtcTransport for mSendTransport failed", t))
-              .subscribe(
-                  data -> {
-                    Logger.d(listenerTAG, "connectWebRtcTransport res: " + data);
-                  });
+          mCompositeDisposable.add(
+              mProtoo
+                  .request(
+                      "connectWebRtcTransport",
+                      req -> {
+                        jsonPut(req, "transportId", transport.getId());
+                        jsonPut(req, "dtlsParameters", toJsonObject(dtlsParameters));
+                      })
+                  .subscribe(
+                      d -> Logger.d(listenerTAG, "connectWebRtcTransport res: " + d),
+                      t -> logError("connectWebRtcTransport for mSendTransport failed", t)));
         }
 
         @Override
@@ -637,17 +650,17 @@ public class RoomClient extends RoomMessageHandler {
         @Override
         public void onConnect(Transport transport, String dtlsParameters) {
           Logger.d(listenerTAG, "onConnect()");
-          JSONObject request = new JSONObject();
-          jsonPut(request, "transportId", transport.getId());
-          jsonPut(request, "dtlsParameters", toJsonObject(dtlsParameters));
-          mProtoo
-              .request("connectWebRtcTransport", request)
-              // TODO (HaiyangWu): handle error
-              .doOnError(t -> logError("connectWebRtcTransport for mRecvTransport failed", t))
-              .subscribe(
-                  data -> {
-                    Logger.d(listenerTAG, "connectWebRtcTransport res: " + data);
-                  });
+          mCompositeDisposable.add(
+              mProtoo
+                  .request(
+                      "connectWebRtcTransport",
+                      req -> {
+                        jsonPut(req, "transportId", transport.getId());
+                        jsonPut(req, "dtlsParameters", toJsonObject(dtlsParameters));
+                      })
+                  .subscribe(
+                      d -> Logger.d(listenerTAG, "connectWebRtcTransport res: " + d),
+                      t -> logError("connectWebRtcTransport for mRecvTransport failed", t)));
         }
 
         @Override
@@ -656,20 +669,25 @@ public class RoomClient extends RoomMessageHandler {
         }
       };
 
-  private String fetchProduceId(JSONObject request) {
+  private String fetchProduceId(Protoo.RequestGenerator generator) {
     StringBuffer result = new StringBuffer();
     CountDownLatch countDownLatch = new CountDownLatch(1);
-    mProtoo
-        .request("produce", request)
-        .map(data -> toJsonObject(data).optString("id"))
-        .doOnError(e -> logError("send produce request failed", e))
-        .subscribe(
-            id -> {
-              result.append(id);
-              countDownLatch.countDown();
-            });
+    mCompositeDisposable.add(
+        mProtoo
+            .request("produce", generator)
+            .map(data -> toJsonObject(data).optString("id"))
+            .subscribe(
+                id -> {
+                  result.append(id);
+                  countDownLatch.countDown();
+                },
+                t -> {
+                  logError("send produce request failed", t);
+                  countDownLatch.countDown();
+                }));
     try {
-      countDownLatch.await();
+      // TODO(HaiyangWU): timeout or better solution ?
+      countDownLatch.await(5000, TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       e.printStackTrace();
     }

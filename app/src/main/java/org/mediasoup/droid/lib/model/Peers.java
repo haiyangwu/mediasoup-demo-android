@@ -7,6 +7,7 @@ import org.mediasoup.droid.Consumer;
 import org.mediasoup.droid.Logger;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +16,11 @@ public class Peers {
 
   private static final String TAG = "Peers";
 
-  private Map<String, Peer> mPeersInfo = new LinkedHashMap<>();
+  private Map<String, Peer> mPeersInfo;
+
+  public Peers() {
+    mPeersInfo = Collections.synchronizedMap(new LinkedHashMap<>());
+  }
 
   public void addPeer(String peerId, @NonNull JSONObject peerInfo) {
     mPeersInfo.put(peerId, new Peer(peerInfo));

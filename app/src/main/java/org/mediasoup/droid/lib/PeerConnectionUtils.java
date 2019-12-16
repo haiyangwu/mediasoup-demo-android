@@ -4,6 +4,8 @@ import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
 
+import androidx.annotation.MainThread;
+
 import org.mediasoup.droid.Logger;
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
@@ -24,6 +26,7 @@ import org.webrtc.VideoTrack;
 import org.webrtc.audio.AudioDeviceModule;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
+@SuppressWarnings("WeakerAccess")
 public class PeerConnectionUtils {
 
   private static final String TAG = "PeerConnectionUtils";
@@ -114,6 +117,7 @@ public class PeerConnectionUtils {
         .createAudioDeviceModule();
   }
 
+  @SuppressWarnings("unused")
   public static PeerConnectionFactory getPeerConnectionFactory(Context context) {
     if (mPeerConnectionFactory == null) {
       createPeerConnectionFactory(context);
@@ -131,6 +135,7 @@ public class PeerConnectionUtils {
     mAudioSource = mPeerConnectionFactory.createAudioSource(new MediaConstraints());
   }
 
+  @MainThread
   public static void setPreferCameraFace(String preferCameraFace) {
     mPreferCameraFace = preferCameraFace;
   }
@@ -202,6 +207,7 @@ public class PeerConnectionUtils {
     }
   }
 
+  @MainThread
   public static void switchCam(CameraVideoCapturer.CameraSwitchHandler switchHandler) {
     if (mCamCapture != null) {
       mCamCapture.switchCamera(switchHandler);
@@ -209,6 +215,7 @@ public class PeerConnectionUtils {
   }
 
   // Video source creation.
+  @MainThread
   private static void createVideoSource(Context context) {
     if (mPeerConnectionFactory == null) {
       createPeerConnectionFactory(context);
@@ -226,6 +233,7 @@ public class PeerConnectionUtils {
   }
 
   // Audio track creation.
+  @MainThread
   public static AudioTrack createAudioTrack(Context context, String id) {
     Logger.d(TAG, "createAudioTrack()");
     if (mAudioSource == null) {
@@ -235,6 +243,7 @@ public class PeerConnectionUtils {
   }
 
   // Video track creation.
+  @MainThread
   public static VideoTrack createVideoTrack(Context context, String id) {
     if (mVideoSource == null) {
       createVideoSource(context);
@@ -243,6 +252,7 @@ public class PeerConnectionUtils {
     return mPeerConnectionFactory.createVideoTrack(id, mVideoSource);
   }
 
+  @MainThread
   public static void dispose() {
     if (mVideoSource != null) {
       mVideoSource.dispose();

@@ -7,6 +7,7 @@ import org.json.JSONObject;
 import java.util.HashSet;
 import java.util.Set;
 
+@SuppressWarnings("WeakerAccess")
 public class Peer extends Info {
 
   private String mId;

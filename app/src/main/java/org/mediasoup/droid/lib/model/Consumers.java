@@ -3,8 +3,8 @@ package org.mediasoup.droid.lib.model;
 import org.json.JSONArray;
 import org.mediasoup.droid.Consumer;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Consumers {
 
@@ -39,7 +39,7 @@ public class Consumers {
   private final Map<String, ConsumerWrapper> consumers;
 
   public Consumers() {
-    consumers = new HashMap<>();
+    consumers = new ConcurrentHashMap<>();
   }
 
   public void addConsumer(Consumer consumer) {

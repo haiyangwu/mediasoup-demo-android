@@ -6,6 +6,7 @@ import org.json.JSONObject;
 
 import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
 
+@SuppressWarnings("WeakerAccess")
 public class DeviceInfo {
 
   private String mFlag;
@@ -47,10 +48,7 @@ public class DeviceInfo {
   }
 
   public static DeviceInfo unknownDevice() {
-    return new DeviceInfo()
-            .setFlag("unknown")
-            .setName("unknown")
-            .setVersion("unknown");
+    return new DeviceInfo().setFlag("unknown").setName("unknown").setVersion("unknown");
   }
 
   public JSONObject toJSONObject() {

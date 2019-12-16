@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.core.util.Supplier;
 import androidx.lifecycle.MutableLiveData;
 
+@SuppressWarnings("WeakerAccess")
 public class SupplierMutableLiveData<T> extends MutableLiveData<T> {
 
   public SupplierMutableLiveData(@NonNull Supplier<T> supplier) {

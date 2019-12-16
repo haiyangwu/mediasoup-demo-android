@@ -7,6 +7,7 @@ import org.mediasoup.droid.Producer;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Producers {
 
@@ -43,7 +44,7 @@ public class Producers {
   private final Map<String, ProducersWrapper> mProducers;
 
   public Producers() {
-    mProducers = new HashMap<>();
+    mProducers = new ConcurrentHashMap<>();
   }
 
   public void addProducer(Producer producer) {

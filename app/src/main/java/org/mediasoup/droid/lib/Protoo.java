@@ -4,11 +4,12 @@ import androidx.annotation.NonNull;
 
 import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
-import org.protoojs.droid.ProtooException;
 import org.mediasoup.droid.lib.socket.WebSocketTransport;
+import org.protoojs.droid.ProtooException;
 
-import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.Observable;
 
+@SuppressWarnings("WeakerAccess")
 public class Protoo extends org.protoojs.droid.Peer {
 
   private static final String TAG = "Protoo";
@@ -31,7 +32,7 @@ public class Protoo extends org.protoojs.droid.Peer {
     return request(method, req);
   }
 
-  public Observable<String> request(String method, @NonNull JSONObject data) {
+  private Observable<String> request(String method, @NonNull JSONObject data) {
     Logger.d(TAG, "request(), method: " + method);
     return Observable.create(
         emitter ->
@@ -43,7 +44,6 @@ public class Protoo extends org.protoojs.droid.Peer {
                   public void resolve(String data) {
                     if (!emitter.isDisposed()) {
                       emitter.onNext(data);
-                      emitter.onComplete();
                     }
                   }
 
