@@ -372,22 +372,10 @@ public class RoomClient extends RoomMessageHandler {
     // Close mProtoo Protoo
     if (mProtoo != null) {
       mProtoo.close();
+      mProtoo = null;
     }
 
-    // Close mediasoup Transports.
-    if (mSendTransport != null) {
-      mSendTransport.close();
-      mSendTransport.dispose();
-    }
-    if (mRecvTransport != null) {
-      mRecvTransport.close();
-      mRecvTransport.dispose();
-    }
-
-    // dispose device.
-    if (mMediasoupDevice != null) {
-      mMediasoupDevice.dispose();
-    }
+    closeTransportAndDevice();
 
     // dispose track and media source.
     if (mLocalAudioTrack != null) {
@@ -400,6 +388,28 @@ public class RoomClient extends RoomMessageHandler {
     }
 
     mStore.setRoomState(ConnectionState.CLOSED);
+  }
+
+  private void closeTransportAndDevice() {
+    Logger.d(TAG, "closeTransportAndDevice()");
+    // Close mediasoup Transports.
+    if (mSendTransport != null) {
+      mSendTransport.close();
+      mSendTransport.dispose();
+      mSendTransport = null;
+    }
+
+    if (mRecvTransport != null) {
+      mRecvTransport.close();
+      mRecvTransport.dispose();
+      mRecvTransport = null;
+    }
+
+    // dispose device.
+    if (mMediasoupDevice != null) {
+      mMediasoupDevice.dispose();
+      mMediasoupDevice = null;
+    }
   }
 
   public void dispose() {
@@ -448,16 +458,9 @@ public class RoomClient extends RoomMessageHandler {
           mStore.addNotify("error", "WebSocket disconnected");
           mStore.setRoomState(ConnectionState.CONNECTING);
 
-          // Close mediasoup Transports.
-          if (mSendTransport != null) {
-            mSendTransport.close();
-            mSendTransport = null;
-          }
-
-          if (mRecvTransport != null) {
-            mRecvTransport.close();
-            mRecvTransport = null;
-          }
+          // Close All Transports created by device.
+          // All will reCreated After ReJoin.
+          closeTransportAndDevice();
         }
 
         @Override
@@ -539,28 +542,30 @@ public class RoomClient extends RoomMessageHandler {
                 }))
             .map(JSONObject::new)
             .subscribe(
-                info -> mWorkHandler.post(() -> createLocalSendTransport(info)),
+                info ->
+                    mWorkHandler.post(
+                        () -> {
+                          Logger.d(TAG, "device#createSendTransport() " + info);
+                          String id = info.optString("id");
+                          String iceParameters = info.optString("iceParameters");
+                          String iceCandidates = info.optString("iceCandidates");
+                          String dtlsParameters = info.optString("dtlsParameters");
+                          String sctpParameters = info.optString("sctpParameters");
+
+                          mSendTransport =
+                              mMediasoupDevice.createSendTransport(
+                                  sendTransportListener,
+                                  id,
+                                  iceParameters,
+                                  iceCandidates,
+                                  dtlsParameters);
+
+                          if (mOptions.isProduce()) {
+                            mMainHandler.post(this::enableMic);
+                            mMainHandler.post(this::enableCam);
+                          }
+                        }),
                 t -> logError("createWebRtcTransport for mSendTransport failed", t)));
-  }
-
-  @WorkerThread
-  private void createLocalSendTransport(JSONObject transportInfo) {
-    Logger.d(TAG, "createLocalSendTransport() " + transportInfo);
-    String id = transportInfo.optString("id");
-    String iceParameters = transportInfo.optString("iceParameters");
-    String iceCandidates = transportInfo.optString("iceCandidates");
-    String dtlsParameters = transportInfo.optString("dtlsParameters");
-    String sctpParameters = transportInfo.optString("sctpParameters");
-
-    // TODO(HaiyangWu): close the pre if not null ???
-    mSendTransport =
-        mMediasoupDevice.createSendTransport(
-            sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
-
-    if (mOptions.isProduce()) {
-      mWorkHandler.post(this::enableMic);
-      mWorkHandler.post(this::enableCam);
-    }
   }
 
   @WorkerThread
@@ -580,23 +585,25 @@ public class RoomClient extends RoomMessageHandler {
                 })
             .map(JSONObject::new)
             .subscribe(
-                info -> mWorkHandler.post(() -> createLocalRecvTransport(info)),
+                info ->
+                    mWorkHandler.post(
+                        () -> {
+                          Logger.d(TAG, "device#createRecvTransport() " + info);
+                          String id = info.optString("id");
+                          String iceParameters = info.optString("iceParameters");
+                          String iceCandidates = info.optString("iceCandidates");
+                          String dtlsParameters = info.optString("dtlsParameters");
+                          String sctpParameters = info.optString("sctpParameters");
+
+                          mRecvTransport =
+                              mMediasoupDevice.createRecvTransport(
+                                  recvTransportListener,
+                                  id,
+                                  iceParameters,
+                                  iceCandidates,
+                                  dtlsParameters);
+                        }),
                 t -> logError("createWebRtcTransport for mRecvTransport failed", t)));
-  }
-
-  @WorkerThread
-  private void createLocalRecvTransport(JSONObject transportInfo) {
-    Logger.d(TAG, "createLocalRecvTransport() " + transportInfo);
-    String id = transportInfo.optString("id");
-    String iceParameters = transportInfo.optString("iceParameters");
-    String iceCandidates = transportInfo.optString("iceCandidates");
-    String dtlsParameters = transportInfo.optString("dtlsParameters");
-    String sctpParameters = transportInfo.optString("sctpParameters");
-
-    // TODO(HaiyangWu): close the pre if not null ???
-    mRecvTransport =
-        mMediasoupDevice.createRecvTransport(
-            recvTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
   }
 
   private SendTransport.Listener sendTransportListener =
