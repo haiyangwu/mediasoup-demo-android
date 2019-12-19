@@ -58,20 +58,26 @@ public class Protoo extends org.protoojs.droid.Peer {
   }
 
   @WorkerThread
-  public String syncRequest(String method) {
+  public String syncRequest(String method) throws ProtooException {
     return syncRequest(method, new JSONObject());
   }
 
   @WorkerThread
-  public String syncRequest(String method, @NonNull RequestGenerator generator) {
+  public String syncRequest(String method, @NonNull RequestGenerator generator)
+      throws ProtooException {
     JSONObject req = new JSONObject();
     generator.request(req);
     return syncRequest(method, req);
   }
 
   @WorkerThread
-  private String syncRequest(String method, @NonNull JSONObject data) {
+  private String syncRequest(String method, @NonNull JSONObject data) throws ProtooException {
     Logger.d(TAG, "syncRequest(), method: " + method);
-    return request(method, data).blockingFirst();
+
+    try {
+      return request(method, data).blockingFirst();
+    } catch (Throwable throwable) {
+      throw new ProtooException(-1, throwable.getMessage());
+    }
   }
 }

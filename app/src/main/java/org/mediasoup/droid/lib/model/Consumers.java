@@ -10,17 +10,29 @@ public class Consumers {
 
   public static class ConsumerWrapper {
 
+    private String mType;
     private boolean mLocallyPaused;
     private boolean mRemotelyPaused;
+    private int mSpatialLayer;
+    private int mTemporalLayer;
     private Consumer mConsumer;
     private JSONArray mScore;
+    private int mPreferredSpatialLayer;
+    private int mPreferredTemporalLayer;
 
-    ConsumerWrapper(Consumer consumer) {
-      this.mConsumer = consumer;
+    ConsumerWrapper(String type, boolean remotelyPaused, Consumer consumer) {
+      mType = type;
+      mLocallyPaused = false;
+      mRemotelyPaused = remotelyPaused;
+      mSpatialLayer = -1;
+      mTemporalLayer = -1;
+      mConsumer = consumer;
+      mPreferredSpatialLayer = -1;
+      mPreferredTemporalLayer = -1;
     }
 
-    public Consumer getConsumer() {
-      return mConsumer;
+    public String getType() {
+      return mType;
     }
 
     public boolean isLocallyPaused() {
@@ -31,8 +43,28 @@ public class Consumers {
       return mRemotelyPaused;
     }
 
+    public int getSpatialLayer() {
+      return mSpatialLayer;
+    }
+
+    public int getTemporalLayer() {
+      return mTemporalLayer;
+    }
+
+    public Consumer getConsumer() {
+      return mConsumer;
+    }
+
     public JSONArray getScore() {
       return mScore;
+    }
+
+    public int getPreferredSpatialLayer() {
+      return mPreferredSpatialLayer;
+    }
+
+    public int getPreferredTemporalLayer() {
+      return mPreferredTemporalLayer;
     }
   }
 
@@ -42,8 +74,8 @@ public class Consumers {
     consumers = new ConcurrentHashMap<>();
   }
 
-  public void addConsumer(Consumer consumer) {
-    consumers.put(consumer.getId(), new ConsumerWrapper(consumer));
+  public void addConsumer(String type, Consumer consumer, boolean remotelyPaused) {
+    consumers.put(consumer.getId(), new ConsumerWrapper(type, remotelyPaused, consumer));
   }
 
   public void removeConsumer(String consumerId) {
@@ -74,6 +106,15 @@ public class Consumers {
     } else {
       wrapper.mRemotelyPaused = false;
     }
+  }
+
+  public void setConsumerCurrentLayers(String consumerId, int spatialLayer, int temporalLayer) {
+    ConsumerWrapper wrapper = consumers.get(consumerId);
+    if (wrapper == null) {
+      return;
+    }
+    wrapper.mSpatialLayer = spatialLayer;
+    wrapper.mTemporalLayer = temporalLayer;
   }
 
   public void setConsumerScore(String consumerId, JSONArray score) {

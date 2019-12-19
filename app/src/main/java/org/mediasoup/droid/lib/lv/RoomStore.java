@@ -178,8 +178,8 @@ public class RoomStore {
     peers.postValue(peersInfo -> peersInfo.removePeer(peerId));
   }
 
-  public void addConsumer(String peerId, Consumer consumer) {
-    consumers.postValue(consumers -> consumers.addConsumer(consumer));
+  public void addConsumer(String peerId, String type, Consumer consumer, boolean remotelyPaused) {
+    consumers.postValue(consumers -> consumers.addConsumer(type, consumer, remotelyPaused));
     peers.postValue(peers -> peers.addConsumer(peerId, consumer));
   }
 
@@ -194,6 +194,10 @@ public class RoomStore {
 
   public void setConsumerResumed(String consumerId, String originator) {
     consumers.postValue(consumers -> consumers.setConsumerResumed(consumerId, originator));
+  }
+
+  public void setConsumerCurrentLayers(String consumerId, int spatialLayer, int temporalLayer) {
+    consumers.postValue(consumers -> consumers.setConsumerCurrentLayers(consumerId, spatialLayer, temporalLayer));
   }
 
   public void setConsumerScore(String consumerId, JSONArray score) {
