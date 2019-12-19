@@ -1,6 +1,7 @@
 package org.mediasoup.droid.lib;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.WorkerThread;
 
 import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
@@ -9,7 +10,7 @@ import org.protoojs.droid.ProtooException;
 
 import io.reactivex.Observable;
 
-@SuppressWarnings("WeakerAccess")
+@SuppressWarnings({"unused", "WeakerAccess"})
 public class Protoo extends org.protoojs.droid.Peer {
 
   private static final String TAG = "Protoo";
@@ -54,5 +55,23 @@ public class Protoo extends org.protoojs.droid.Peer {
                     }
                   }
                 }));
+  }
+
+  @WorkerThread
+  public String syncRequest(String method) {
+    return syncRequest(method, new JSONObject());
+  }
+
+  @WorkerThread
+  public String syncRequest(String method, @NonNull RequestGenerator generator) {
+    JSONObject req = new JSONObject();
+    generator.request(req);
+    return syncRequest(method, req);
+  }
+
+  @WorkerThread
+  private String syncRequest(String method, @NonNull JSONObject data) {
+    Logger.d(TAG, "syncRequest(), method: " + method);
+    return request(method, data).blockingFirst();
   }
 }

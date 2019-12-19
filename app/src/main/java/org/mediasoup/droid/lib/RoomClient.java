@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
 import org.mediasoup.droid.Device;
@@ -432,178 +433,169 @@ public class RoomClient extends RoomMessageHandler {
 
         @Override
         public void onFail() {
-          mStore.addNotify("error", "WebSocket connection failed");
-          mStore.setRoomState(ConnectionState.CONNECTING);
+          mWorkHandler.post(
+              () -> {
+                mStore.addNotify("error", "WebSocket connection failed");
+                mStore.setRoomState(ConnectionState.CONNECTING);
+              });
         }
 
         @Override
         public void onRequest(
             @NonNull Message.Request request, @NonNull Protoo.ServerRequestHandler handler) {
           Logger.d(TAG, "onRequest() " + request.getData().toString());
-          handleRequest(request, handler);
+          mWorkHandler.post(() -> handleRequest(request, handler));
         }
 
         @Override
         public void onNotification(@NonNull Message.Notification notification) {
           Logger.d(TAG, "onNotification() " + notification.getData().toString());
-          try {
-            handleNotification(notification);
-          } catch (Exception e) {
-            Logger.e(TAG, "handleNotification error.", e);
-          }
+          mWorkHandler.post(
+              () -> {
+                try {
+                  handleNotification(notification);
+                } catch (Exception e) {
+                  Logger.e(TAG, "handleNotification error.", e);
+                }
+              });
         }
 
         @Override
         public void onDisconnected() {
-          mStore.addNotify("error", "WebSocket disconnected");
-          mStore.setRoomState(ConnectionState.CONNECTING);
+          mWorkHandler.post(
+              () -> {
+                mStore.addNotify("error", "WebSocket disconnected");
+                mStore.setRoomState(ConnectionState.CONNECTING);
 
-          // Close All Transports created by device.
-          // All will reCreated After ReJoin.
-          closeTransportAndDevice();
+                // Close All Transports created by device.
+                // All will reCreated After ReJoin.
+                closeTransportAndDevice();
+              });
         }
 
         @Override
         public void onClose() {
-          if (mClosed) {
-            return;
-          }
-          close();
+          mWorkHandler.post(
+              () -> {
+                if (mClosed) {
+                  return;
+                }
+                close();
+              });
         }
       };
 
   @WorkerThread
   private void joinImpl() {
     Logger.d(TAG, "joinImpl()");
-    mStore.setRoomState(ConnectionState.CONNECTED);
-    mMediasoupDevice = new Device();
-    mCompositeDisposable.add(
-        mProtoo
-            .request("getRouterRtpCapabilities")
-            .map(
-                data -> {
-                  mMediasoupDevice.load(data);
-                  return mMediasoupDevice.getRtpCapabilities();
-                })
-            .flatMap(
-                rtpCapabilities ->
-                    mProtoo.request(
-                        "join",
-                        req -> {
-                          jsonPut(req, "displayName", mDisplayName);
-                          jsonPut(req, "device", mOptions.getDevice().toJSONObject());
-                          jsonPut(req, "rtpCapabilities", toJsonObject(rtpCapabilities));
-                          // TODO (HaiyangWu): add sctpCapabilities
-                          jsonPut(req, "sctpCapabilities", "");
-                        }))
-            .subscribe(
-                res -> {
-                  mStore.setRoomState(ConnectionState.CONNECTED);
-                  mStore.addNotify("You are in the room!", 3000);
 
-                  JSONObject resObj = JsonUtils.toJsonObject(res);
-                  JSONArray peers = resObj.optJSONArray("peers");
-                  for (int i = 0; peers != null && i < peers.length(); i++) {
-                    JSONObject peer = peers.getJSONObject(i);
-                    mStore.addPeer(peer.optString("id"), peer);
-                  }
+    try {
+      mMediasoupDevice = new Device();
+      String routerRtpCapabilities = mProtoo.syncRequest("getRouterRtpCapabilities");
+      mMediasoupDevice.load(routerRtpCapabilities);
+      String rtpCapabilities = mMediasoupDevice.getRtpCapabilities();
 
-                  if (mOptions.isProduce()) {
-                    boolean canSendMic = mMediasoupDevice.canProduce("audio");
-                    boolean canSendCam = mMediasoupDevice.canProduce("video");
-                    mStore.setMediaCapabilities(canSendMic, canSendCam);
-                    mWorkHandler.post(this::createSendTransport);
-                  }
+      // Create mediasoup Transport for sending (unless we don't want to produce).
+      if (mOptions.isProduce()) {
+        createSendTransport();
+      }
 
-                  if (mOptions.isConsume()) {
-                    mWorkHandler.post(this::createRecvTransport);
-                  }
-                },
-                t -> {
-                  logError("joinRoom() failed", t);
-                  mStore.addNotify("error", "Could not join the room: " + t.getMessage());
-                  this.close();
-                }));
+      // Create mediasoup Transport for sending (unless we don't want to consume).
+      if (mOptions.isConsume()) {
+        createRecvTransport();
+      }
+
+      // Join now into the room.
+      // TODO(HaiyangWu): Don't send our RTP capabilities if we don't want to consume.
+      String joinResponse =
+          mProtoo.syncRequest(
+              "join",
+              req -> {
+                jsonPut(req, "displayName", mDisplayName);
+                jsonPut(req, "device", mOptions.getDevice().toJSONObject());
+                jsonPut(req, "rtpCapabilities", toJsonObject(rtpCapabilities));
+                // TODO (HaiyangWu): add sctpCapabilities
+                jsonPut(req, "sctpCapabilities", "");
+              });
+
+      mStore.setRoomState(ConnectionState.CONNECTED);
+      mStore.addNotify("You are in the room!", 3000);
+
+      JSONObject resObj = JsonUtils.toJsonObject(joinResponse);
+      JSONArray peers = resObj.optJSONArray("peers");
+      for (int i = 0; peers != null && i < peers.length(); i++) {
+        JSONObject peer = peers.getJSONObject(i);
+        mStore.addPeer(peer.optString("id"), peer);
+      }
+
+      // Enable mic/webcam.
+      if (mOptions.isProduce()) {
+        boolean canSendMic = mMediasoupDevice.canProduce("audio");
+        boolean canSendCam = mMediasoupDevice.canProduce("video");
+        mStore.setMediaCapabilities(canSendMic, canSendCam);
+        mWorkHandler.post(this::enableMic);
+        mWorkHandler.post(this::enableCam);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      logError("joinRoom() failed:", e);
+      mStore.addNotify("error", "Could not join the room: " + e.getMessage());
+      mMainHandler.post(this::close);
+    }
   }
 
   @WorkerThread
-  private void createSendTransport() {
+  private void createSendTransport() throws JSONException {
     Logger.d(TAG, "createSendTransport()");
-    mCompositeDisposable.add(
-        mProtoo
-            .request(
-                "createWebRtcTransport",
-                (req -> {
-                  jsonPut(req, "forceTcp", mOptions.isForceTcp());
-                  jsonPut(req, "producing", true);
-                  jsonPut(req, "consuming", false);
-                  // TODO: sctpCapabilities
-                  jsonPut(req, "sctpCapabilities", "");
-                }))
-            .map(JSONObject::new)
-            .subscribe(
-                info ->
-                    mWorkHandler.post(
-                        () -> {
-                          Logger.d(TAG, "device#createSendTransport() " + info);
-                          String id = info.optString("id");
-                          String iceParameters = info.optString("iceParameters");
-                          String iceCandidates = info.optString("iceCandidates");
-                          String dtlsParameters = info.optString("dtlsParameters");
-                          String sctpParameters = info.optString("sctpParameters");
+    String res =
+        mProtoo.syncRequest(
+            "createWebRtcTransport",
+            (req -> {
+              jsonPut(req, "forceTcp", mOptions.isForceTcp());
+              jsonPut(req, "producing", true);
+              jsonPut(req, "consuming", false);
+              // TODO: sctpCapabilities
+              jsonPut(req, "sctpCapabilities", "");
+            }));
+    JSONObject info = new JSONObject(res);
 
-                          mSendTransport =
-                              mMediasoupDevice.createSendTransport(
-                                  sendTransportListener,
-                                  id,
-                                  iceParameters,
-                                  iceCandidates,
-                                  dtlsParameters);
+    Logger.d(TAG, "device#createSendTransport() " + info);
+    String id = info.optString("id");
+    String iceParameters = info.optString("iceParameters");
+    String iceCandidates = info.optString("iceCandidates");
+    String dtlsParameters = info.optString("dtlsParameters");
+    String sctpParameters = info.optString("sctpParameters");
 
-                          if (mOptions.isProduce()) {
-                            mMainHandler.post(this::enableMic);
-                            mMainHandler.post(this::enableCam);
-                          }
-                        }),
-                t -> logError("createWebRtcTransport for mSendTransport failed", t)));
+    mSendTransport =
+        mMediasoupDevice.createSendTransport(
+            sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
   }
 
   @WorkerThread
-  private void createRecvTransport() {
+  private void createRecvTransport() throws JSONException {
     Logger.d(TAG, "createRecvTransport()");
 
-    mCompositeDisposable.add(
-        mProtoo
-            .request(
-                "createWebRtcTransport",
-                req -> {
-                  jsonPut(req, "forceTcp", mOptions.isForceTcp());
-                  jsonPut(req, "producing", false);
-                  jsonPut(req, "consuming", true);
-                  // TODO (HaiyangWu): add sctpCapabilities
-                  jsonPut(req, "sctpCapabilities", "");
-                })
-            .map(JSONObject::new)
-            .subscribe(
-                info ->
-                    mWorkHandler.post(
-                        () -> {
-                          Logger.d(TAG, "device#createRecvTransport() " + info);
-                          String id = info.optString("id");
-                          String iceParameters = info.optString("iceParameters");
-                          String iceCandidates = info.optString("iceCandidates");
-                          String dtlsParameters = info.optString("dtlsParameters");
-                          String sctpParameters = info.optString("sctpParameters");
+    String res =
+        mProtoo.syncRequest(
+            "createWebRtcTransport",
+            req -> {
+              jsonPut(req, "forceTcp", mOptions.isForceTcp());
+              jsonPut(req, "producing", false);
+              jsonPut(req, "consuming", true);
+              // TODO (HaiyangWu): add sctpCapabilities
+              jsonPut(req, "sctpCapabilities", "");
+            });
+    JSONObject info = new JSONObject(res);
+    Logger.d(TAG, "device#createRecvTransport() " + info);
+    String id = info.optString("id");
+    String iceParameters = info.optString("iceParameters");
+    String iceCandidates = info.optString("iceCandidates");
+    String dtlsParameters = info.optString("dtlsParameters");
+    String sctpParameters = info.optString("sctpParameters");
 
-                          mRecvTransport =
-                              mMediasoupDevice.createRecvTransport(
-                                  recvTransportListener,
-                                  id,
-                                  iceParameters,
-                                  iceCandidates,
-                                  dtlsParameters);
-                        }),
-                t -> logError("createWebRtcTransport for mRecvTransport failed", t)));
+    mRecvTransport =
+        mMediasoupDevice.createRecvTransport(
+            recvTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
   }
 
   private SendTransport.Listener sendTransportListener =

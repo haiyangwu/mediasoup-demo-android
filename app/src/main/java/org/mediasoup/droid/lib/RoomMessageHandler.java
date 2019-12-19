@@ -1,6 +1,7 @@
 package org.mediasoup.droid.lib;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.WorkerThread;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -20,6 +21,7 @@ class RoomMessageHandler {
     this.mStore = store;
   }
 
+  @WorkerThread
   void handleRequest(Message.Request request, Protoo.ServerRequestHandler handler) {
     // TODO (HaiyangWu): handle request msg
     switch (request.getMethod()) {
@@ -34,6 +36,7 @@ class RoomMessageHandler {
     }
   }
 
+  @WorkerThread
   void handleNotification(Message.Notification notification) throws JSONException {
     // TODO (HaiyangWu): handle notification msg
     JSONObject data = notification.getData();
