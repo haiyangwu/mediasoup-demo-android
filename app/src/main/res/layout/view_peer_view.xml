@@ -159,6 +159,8 @@
                 android:id="@+id/me_display_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:singleLine="true"
+                android:imeOptions="actionDone"
                 android:text="@{peerViewProps.peer.displayName}"
                 android:visibility="@{peerViewProps.me ? View.VISIBLE : View.GONE}" />
 

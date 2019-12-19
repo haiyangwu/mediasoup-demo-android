@@ -5,8 +5,11 @@ import android.os.Build;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
+import android.view.inputmethod.EditorInfo;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -63,18 +66,13 @@ public class MeView extends RelativeLayout {
           props.getShowInfo().set(showInfo != null && showInfo ? Boolean.FALSE : Boolean.TRUE);
         });
 
-    mBinding.peerView.meDisplayName.addTextChangedListener(
-        new TextWatcher() {
-          @Override
-          public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-          @Override
-          public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
-          @Override
-          public void afterTextChanged(Editable s) {
-            roomClient.changeDisplayName(s.toString().trim());
+    mBinding.peerView.meDisplayName.setOnEditorActionListener(
+        (textView, actionId, keyEvent) -> {
+          if (actionId == EditorInfo.IME_ACTION_DONE) {
+            roomClient.changeDisplayName(textView.getText().toString().trim());
+            return true;
           }
+          return false;
         });
     mBinding.peerView.stats.setOnClickListener(
         view -> {
