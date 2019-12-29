@@ -2,14 +2,10 @@ package org.mediasoup.droid.demo.view;
 
 import android.content.Context;
 import android.os.Build;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.AttributeSet;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.inputmethod.EditorInfo;
 import android.widget.RelativeLayout;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,7 +17,6 @@ import org.mediasoup.droid.demo.databinding.ViewMeBindingImpl;
 import org.mediasoup.droid.demo.vm.MeProps;
 import org.mediasoup.droid.lib.PeerConnectionUtils;
 import org.mediasoup.droid.lib.RoomClient;
-import org.webrtc.RendererCommon;
 
 public class MeView extends RelativeLayout {
 

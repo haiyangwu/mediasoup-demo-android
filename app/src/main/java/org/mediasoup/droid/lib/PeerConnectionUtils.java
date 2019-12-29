@@ -26,7 +26,6 @@ import org.webrtc.VideoTrack;
 import org.webrtc.audio.AudioDeviceModule;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
-@SuppressWarnings("WeakerAccess")
 public class PeerConnectionUtils {
 
   private static final String TAG = "PeerConnectionUtils";
@@ -39,7 +38,7 @@ public class PeerConnectionUtils {
   private static String mPreferCameraFace;
 
   // PeerConnection factory creation.
-  static void createPeerConnectionFactory(Context context) {
+  private static void createPeerConnectionFactory(Context context) {
     Logger.d(TAG, "createPeerConnectionFactory()");
     PeerConnectionFactory.Builder builder = PeerConnectionFactory.builder();
     builder.setOptions(null);
@@ -63,14 +62,14 @@ public class PeerConnectionUtils {
             .createPeerConnectionFactory();
   }
 
-  public static EglBase.Context getEglContext() {
+  public static synchronized EglBase.Context getEglContext() {
     if (mEglBase == null) {
       mEglBase = EglBase.create();
     }
     return mEglBase.getEglBaseContext();
   }
 
-  static AudioDeviceModule createJavaAudioDevice(Context appContext) {
+  private static AudioDeviceModule createJavaAudioDevice(Context appContext) {
     // Enable/disable OpenSL ES playback.
     // Set audio record error callbacks.
     JavaAudioDeviceModule.AudioRecordErrorCallback audioRecordErrorCallback =
@@ -117,14 +116,6 @@ public class PeerConnectionUtils {
         .createAudioDeviceModule();
   }
 
-  @SuppressWarnings("unused")
-  public static PeerConnectionFactory getPeerConnectionFactory(Context context) {
-    if (mPeerConnectionFactory == null) {
-      createPeerConnectionFactory(context);
-    }
-    return mPeerConnectionFactory;
-  }
-
   // Audio source creation.
   private static void createAudioSource(Context context) {
     Logger.d(TAG, "createAudioSource()");
@@ -135,8 +126,7 @@ public class PeerConnectionUtils {
     mAudioSource = mPeerConnectionFactory.createAudioSource(new MediaConstraints());
   }
 
-  @MainThread
-  public static void setPreferCameraFace(String preferCameraFace) {
+  public static synchronized void setPreferCameraFace(String preferCameraFace) {
     mPreferCameraFace = preferCameraFace;
   }
 
@@ -207,8 +197,7 @@ public class PeerConnectionUtils {
     }
   }
 
-  @MainThread
-  public static void switchCam(CameraVideoCapturer.CameraSwitchHandler switchHandler) {
+  public static synchronized void switchCam(CameraVideoCapturer.CameraSwitchHandler switchHandler) {
     if (mCamCapture != null) {
       mCamCapture.switchCamera(switchHandler);
     }
@@ -233,8 +222,7 @@ public class PeerConnectionUtils {
   }
 
   // Audio track creation.
-  @MainThread
-  public static AudioTrack createAudioTrack(Context context, String id) {
+  public static synchronized AudioTrack createAudioTrack(Context context, String id) {
     Logger.d(TAG, "createAudioTrack()");
     if (mAudioSource == null) {
       createAudioSource(context);
@@ -243,8 +231,7 @@ public class PeerConnectionUtils {
   }
 
   // Video track creation.
-  @MainThread
-  public static VideoTrack createVideoTrack(Context context, String id) {
+  public static synchronized VideoTrack createVideoTrack(Context context, String id) {
     if (mVideoSource == null) {
       createVideoSource(context);
     }
@@ -252,8 +239,7 @@ public class PeerConnectionUtils {
     return mPeerConnectionFactory.createVideoTrack(id, mVideoSource);
   }
 
-  @MainThread
-  public static void dispose() {
+  public static synchronized void dispose() {
     if (mVideoSource != null) {
       mVideoSource.dispose();
       mVideoSource = null;

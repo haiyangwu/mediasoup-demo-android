@@ -7,15 +7,12 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.databinding.DataBindingUtil;
 import androidx.lifecycle.LifecycleOwner;
-import androidx.lifecycle.ViewModelProviders;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.demo.R;
 import org.mediasoup.droid.demo.view.PeerView;
-import org.mediasoup.droid.demo.vm.EdiasProps;
 import org.mediasoup.droid.demo.vm.PeerProps;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.lv.RoomStore;

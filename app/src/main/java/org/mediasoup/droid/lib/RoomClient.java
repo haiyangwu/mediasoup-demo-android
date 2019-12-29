@@ -6,9 +6,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.preference.PreferenceManager;
-import android.text.TextUtils;
 
-import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 
@@ -30,9 +28,6 @@ import org.webrtc.AudioTrack;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.VideoTrack;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -41,7 +36,6 @@ import io.reactivex.disposables.CompositeDisposable;
 import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
 import static org.mediasoup.droid.lib.JsonUtils.toJsonObject;
 
-@SuppressWarnings("WeakerAccess")
 public class RoomClient extends RoomMessageHandler {
 
   public enum ConnectionState {
@@ -91,6 +85,7 @@ public class RoomClient extends RoomMessageHandler {
   private Producer mBotDataProducer;
   // jobs worker handler.
   private Handler mWorkHandler;
+  // main looper handler.
   private Handler mMainHandler;
   // Disposable Composite. used to cancel running
   private CompositeDisposable mCompositeDisposable = new CompositeDisposable();
@@ -142,7 +137,7 @@ public class RoomClient extends RoomMessageHandler {
     mMainHandler = new Handler(Looper.getMainLooper());
   }
 
-  @MainThread
+  @Async
   public void join() {
     Logger.d(TAG, "join() " + this.mProtooUrl);
     mStore.setRoomState(ConnectionState.CONNECTING);
@@ -150,137 +145,82 @@ public class RoomClient extends RoomMessageHandler {
     mProtoo = new Protoo(transport, peerListener);
   }
 
-  @MainThread
+  @Async
   public void enableMic() {
     Logger.d(TAG, "enableMic()");
-    if (!mMediasoupDevice.isLoaded()) {
-      Logger.w(TAG, "enableMic() | not loaded");
-      return;
-    }
-    if (!mMediasoupDevice.canProduce("audio")) {
-      Logger.w(TAG, "enableMic() | cannot produce audio");
-      return;
-    }
-    if (mSendTransport == null) {
-      Logger.w(TAG, "enableMic() | mSendTransport doesn't ready");
-      return;
-    }
-    if (mLocalAudioTrack == null) {
-      mLocalAudioTrack = PeerConnectionUtils.createAudioTrack(mContext, "mic");
-      mLocalAudioTrack.setEnabled(true);
-    }
-    mMicProducer =
-        mSendTransport.produce(
-            producer -> {
-              Logger.e(TAG, "onTransportClose(), micProducer");
-            },
-            mLocalAudioTrack,
-            null,
-            null);
-    mStore.addProducer(mMicProducer);
+    mWorkHandler.post(this::enableMicImpl);
   }
 
-  @MainThread
+  @Async
   public void disableMic() {
     Logger.d(TAG, "disableMic()");
-
-    if (mMicProducer == null) {
-      return;
-    }
-
-    mMicProducer.close();
-    mStore.removeProducer(mMicProducer.getId());
-
-    // TODO(HaiyangWu) : await
-    mCompositeDisposable.add(
-        mProtoo
-            .request("closeProducer", req -> jsonPut(req, "producerId", mMicProducer.getId()))
-            .subscribe(
-                res -> {},
-                throwable ->
-                    mStore.addNotify("Error closing server-side mic Producer: ", throwable)));
-
-    mMicProducer = null;
+    mWorkHandler.post(this::disableMicImpl);
   }
 
-  @MainThread
+  @Async
   public void muteMic() {
     Logger.d(TAG, "muteMic()");
+    mWorkHandler.post(this::muteMicImpl);
   }
 
-  @MainThread
+  @Async
   public void unmuteMic() {
     Logger.d(TAG, "unmuteMic()");
-    // TODO:
+    mWorkHandler.post(this::unmuteMicImpl);
   }
 
-  @MainThread
+  @Async
   public void enableCam() {
     Logger.d(TAG, "enableCam()");
-    if (!mMediasoupDevice.isLoaded()) {
-      Logger.w(TAG, "enableCam() | not loaded");
-      return;
-    }
-    if (!mMediasoupDevice.canProduce("video")) {
-      Logger.w(TAG, "enableCam() | cannot produce video");
-      return;
-    }
-    if (mSendTransport == null) {
-      Logger.w(TAG, "enableCam() | mSendTransport doesn't ready");
-      return;
-    }
-    if (mLocalVideoTrack == null) {
-      mLocalVideoTrack = PeerConnectionUtils.createVideoTrack(mContext, "cam");
-      mLocalVideoTrack.setEnabled(true);
-    }
-    mCamProducer =
-        mSendTransport.produce(
-            producer -> {
-              Logger.e(TAG, "onTransportClose(), camProducer");
-            },
-            mLocalVideoTrack,
-            null,
-            null);
-    mStore.addProducer(mCamProducer);
-  }
-
-  @MainThread
-  public void disableCam() {
-    Logger.d(TAG, "disableCam()");
-    // TODO:
-  }
-
-  @MainThread
-  public void changeCam() {
-    Logger.d(TAG, "changeCam()");
     mStore.setCamInProgress(true);
-    PeerConnectionUtils.switchCam(
-        new CameraVideoCapturer.CameraSwitchHandler() {
-          @Override
-          public void onCameraSwitchDone(boolean b) {
-            mStore.setCamInProgress(false);
-          }
-
-          @Override
-          public void onCameraSwitchError(String s) {
-            Logger.w(TAG, "changeCam() | failed: " + s);
-            mStore.addNotify("error", "Could not change cam: " + s);
-            mStore.setCamInProgress(false);
-          }
+    mWorkHandler.post(
+        () -> {
+          enableCamImpl();
+          mStore.setCamInProgress(false);
         });
   }
 
-  @MainThread
+  @Async
+  public void disableCam() {
+    Logger.d(TAG, "disableCam()");
+    mWorkHandler.post(this::disableCamImpl);
+  }
+
+  @Async
+  public void changeCam() {
+    Logger.d(TAG, "changeCam()");
+    mStore.setCamInProgress(true);
+    mWorkHandler.post(
+        () ->
+            PeerConnectionUtils.switchCam(
+                new CameraVideoCapturer.CameraSwitchHandler() {
+                  @Override
+                  public void onCameraSwitchDone(boolean b) {
+                    mStore.setCamInProgress(false);
+                  }
+
+                  @Override
+                  public void onCameraSwitchError(String s) {
+                    Logger.w(TAG, "changeCam() | failed: " + s);
+                    mStore.addNotify("error", "Could not change cam: " + s);
+                    mStore.setCamInProgress(false);
+                  }
+                }));
+  }
+
+  @Async
   public void disableShare() {
     Logger.d(TAG, "disableShare()");
+    // TODO(feature): share
   }
 
-  @MainThread
+  @Async
   public void enableShare() {
     Logger.d(TAG, "enableShare()");
+    // TODO(feature): share
   }
 
-  @MainThread
+  @Async
   public void enableAudioOnly() {
     Logger.d(TAG, "enableAudioOnly()");
     mStore.setAudioOnlyInProgress(true);
@@ -299,7 +239,7 @@ public class RoomClient extends RoomMessageHandler {
         });
   }
 
-  @MainThread
+  @Async
   public void disableAudioOnly() {
     Logger.d(TAG, "disableAudioOnly()");
     mStore.setAudioOnlyInProgress(true);
@@ -320,21 +260,21 @@ public class RoomClient extends RoomMessageHandler {
         });
   }
 
-  @MainThread
+  @Async
   public void muteAudio() {
     Logger.d(TAG, "muteAudio()");
-    // TODO: Mute/unmute participants\' audio
+    // TODO(feature): Mute/unmute participants\' audio
     mStore.setAudioMutedState(true);
   }
 
-  @MainThread
+  @Async
   public void unmuteAudio() {
     Logger.d(TAG, "unmuteAudio()");
-    // TODO: Mute/unmute participants\' audio
+    // TODO(feature): Mute/unmute participants\' audio
     mStore.setAudioMutedState(false);
   }
 
-  @MainThread
+  @Async
   public void restartIce() {
     Logger.d(TAG, "restartIce()");
     mStore.setRestartIceInProgress(true);
@@ -362,182 +302,183 @@ public class RoomClient extends RoomMessageHandler {
         });
   }
 
-  @MainThread
+  @Async
   public void setMaxSendingSpatialLayer() {
     Logger.d(TAG, "setMaxSendingSpatialLayer()");
-    // TODO:
+    // TODO(feature): layer
   }
 
-  @MainThread
+  @Async
   public void setConsumerPreferredLayers(String spatialLayer) {
     Logger.d(TAG, "setConsumerPreferredLayers()");
-    // TODO:
+    // TODO(feature): layer
   }
 
-  @MainThread
+  @Async
   public void setConsumerPreferredLayers(
       String consumerId, String spatialLayer, String temporalLayer) {
     Logger.d(TAG, "setConsumerPreferredLayers()");
-    // TODO:
+    // TODO: layer
   }
 
-  @MainThread
+  @Async
   public void requestConsumerKeyFrame(String consumerId) {
     Logger.d(TAG, "requestConsumerKeyFrame()");
-    mCompositeDisposable.add(
-        mProtoo
-            .request("requestConsumerKeyFrame", req -> jsonPut(req, "consumerId", "consumerId"))
-            .subscribe(
-                (res) -> {
-                  mStore.addNotify("Keyframe requested for video consumer");
-                },
-                e -> {
-                  logError("restartIce() | failed:", e);
-                  mStore.addNotify("error", "ICE restart failed: " + e.getMessage());
-                }));
+    mWorkHandler.post(
+        () -> {
+          try {
+            mProtoo.syncRequest(
+                "requestConsumerKeyFrame", req -> jsonPut(req, "consumerId", "consumerId"));
+            mStore.addNotify("Keyframe requested for video consumer");
+          } catch (ProtooException e) {
+            e.printStackTrace();
+            logError("restartIce() | failed:", e);
+            mStore.addNotify("error", "ICE restart failed: " + e.getMessage());
+          }
+        });
   }
 
-  @MainThread
+  @Async
   public void enableChatDataProducer() {
     Logger.d(TAG, "enableChatDataProducer()");
-    // TODO:
+    // TODO(feature): data channel
   }
 
-  @MainThread
+  @Async
   public void enableBotDataProducer() {
     Logger.d(TAG, "enableBotDataProducer()");
-    // TODO:
+    // TODO(feature): data channel
   }
 
-  @MainThread
+  @Async
   public void sendChatMessage(String txt) {
     Logger.d(TAG, "sendChatMessage()");
-    // TODO:
+    // TODO(feature): data channel
   }
 
-  @MainThread
+  @Async
   public void sendBotMessage(String txt) {
     Logger.d(TAG, "sendBotMessage()");
-    // TODO:
+    // TODO(feature): data channel
   }
 
-  @MainThread
+  @Async
   public void changeDisplayName(String displayName) {
     Logger.d(TAG, "changeDisplayName()");
 
     // Store in cookie.
     mPreferences.edit().putString("displayName", displayName).apply();
 
-    mCompositeDisposable.add(
-        mProtoo
-            .request("changeDisplayName", req -> jsonPut(req, "displayName", displayName))
-            .subscribe(
-                (res) -> {
-                  mDisplayName = displayName;
-                  mStore.setDisplayName(displayName);
-                  mStore.addNotify("Display name change");
-                },
-                e -> {
-                  logError("changeDisplayName() | failed:", e);
-                  mStore.addNotify("error", "Could not change display name: " + e.getMessage());
+    mWorkHandler.post(
+        () -> {
+          try {
+            mProtoo.syncRequest(
+                "changeDisplayName", req -> jsonPut(req, "displayName", displayName));
+            mDisplayName = displayName;
+            mStore.setDisplayName(displayName);
+            mStore.addNotify("Display name change");
+          } catch (ProtooException e) {
+            e.printStackTrace();
+            logError("changeDisplayName() | failed:", e);
+            mStore.addNotify("error", "Could not change display name: " + e.getMessage());
 
-                  // We need to refresh the component for it to render the previous
-                  // displayName again.
-                  mStore.setDisplayName(mDisplayName);
-                }));
+            // We need to refresh the component for it to render the previous
+            // displayName again.
+            mStore.setDisplayName(mDisplayName);
+          }
+        });
   }
 
-  @MainThread
+  @Async
   public void getSendTransportRemoteStats() {
     Logger.d(TAG, "getSendTransportRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getRecvTransportRemoteStats() {
     Logger.d(TAG, "getRecvTransportRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getAudioRemoteStats() {
     Logger.d(TAG, "getAudioRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getVideoRemoteStats() {
     Logger.d(TAG, "getVideoRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getConsumerRemoteStats(String consumerId) {
     Logger.d(TAG, "getConsumerRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getChatDataProducerRemoteStats(String consumerId) {
     Logger.d(TAG, "getChatDataProducerRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getBotDataProducerRemoteStats() {
     Logger.d(TAG, "getBotDataProducerRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getDataConsumerRemoteStats(String dataConsumerId) {
     Logger.d(TAG, "getDataConsumerRemoteStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getSendTransportLocalStats() {
     Logger.d(TAG, "getSendTransportLocalStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getRecvTransportLocalStats() {
     Logger.d(TAG, "getRecvTransportLocalStats()");
-    // TODO:
+    /// TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getAudioLocalStats() {
     Logger.d(TAG, "getAudioLocalStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getVideoLocalStats() {
     Logger.d(TAG, "getVideoLocalStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void getConsumerLocalStats(String consumerId) {
     Logger.d(TAG, "getConsumerLocalStats()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void applyNetworkThrottle(String uplink, String downlink, String rtt, String secret) {
     Logger.d(TAG, "applyNetworkThrottle()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
+  @Async
   public void resetNetworkThrottle(boolean silent, String secret) {
     Logger.d(TAG, "applyNetworkThrottle()");
-    // TODO:
+    // TODO(feature): stats
   }
 
-  @MainThread
   public void close() {
     if (this.mClosed) {
       return;
@@ -571,13 +512,15 @@ public class RoomClient extends RoomMessageHandler {
     // Close mediasoup Transports.
     if (mSendTransport != null) {
       mSendTransport.close();
-      mSendTransport.dispose();
+      // TODO(Bug): dispose
+//      mSendTransport.dispose();
       mSendTransport = null;
     }
 
     if (mRecvTransport != null) {
       mRecvTransport.close();
-      mRecvTransport.dispose();
+      // TODO(Bug): dispose
+//      mRecvTransport.dispose();
       mRecvTransport = null;
     }
 
@@ -736,8 +679,8 @@ public class RoomClient extends RoomMessageHandler {
         boolean canSendMic = mMediasoupDevice.canProduce("audio");
         boolean canSendCam = mMediasoupDevice.canProduce("video");
         mStore.setMediaCapabilities(canSendMic, canSendCam);
-        mWorkHandler.post(this::enableMic);
-        mWorkHandler.post(this::enableCam);
+        enableMicImpl();
+        enableCamImpl();
       }
     } catch (Exception e) {
       e.printStackTrace();
@@ -745,6 +688,154 @@ public class RoomClient extends RoomMessageHandler {
       mStore.addNotify("error", "Could not join the room: " + e.getMessage());
       mMainHandler.post(this::close);
     }
+  }
+
+  @WorkerThread
+  private void enableMicImpl() {
+    if (mMicProducer != null) {
+      return;
+    }
+    if (!mMediasoupDevice.isLoaded()) {
+      Logger.w(TAG, "enableMic() | not loaded");
+      return;
+    }
+    if (!mMediasoupDevice.canProduce("audio")) {
+      Logger.w(TAG, "enableMic() | cannot produce audio");
+      return;
+    }
+    if (mSendTransport == null) {
+      Logger.w(TAG, "enableMic() | mSendTransport doesn't ready");
+      return;
+    }
+    if (mLocalAudioTrack == null) {
+      mLocalAudioTrack = PeerConnectionUtils.createAudioTrack(mContext, "mic");
+      mLocalAudioTrack.setEnabled(true);
+    }
+    try {
+      mMicProducer =
+          mSendTransport.produce(
+              producer -> {
+                Logger.e(TAG, "onTransportClose(), micProducer");
+              },
+              mLocalAudioTrack,
+              null,
+              null);
+      mStore.addProducer(mMicProducer);
+    } catch (Throwable t) {
+      // TODO(HaiyangWu): define exception
+      t.printStackTrace();
+      logError("enableMic() | failed:", t);
+      mStore.addNotify("error", "Error enabling microphone: " + t.getMessage());
+      if (mLocalAudioTrack != null) {
+        mLocalAudioTrack.setEnabled(false);
+      }
+    }
+  }
+
+  @WorkerThread
+  private void disableMicImpl() {
+    if (mMicProducer == null) {
+      return;
+    }
+
+    mMicProducer.close();
+    mStore.removeProducer(mMicProducer.getId());
+
+    try {
+      mProtoo.syncRequest("closeProducer", req -> jsonPut(req, "producerId", mMicProducer.getId()));
+    } catch (ProtooException e) {
+      e.printStackTrace();
+      mStore.addNotify("error", "Error closing server-side mic Producer: " + e.getMessage());
+    }
+    mMicProducer = null;
+  }
+
+  @WorkerThread
+  private void muteMicImpl() {
+    mMicProducer.pause();
+
+    try {
+      mProtoo.syncRequest("pauseProducer", req -> jsonPut(req, "producerId", mMicProducer.getId()));
+      mStore.setProducerPaused(mMicProducer.getId());
+    } catch (ProtooException e) {
+      e.printStackTrace();
+      logError("muteMic() | failed:", e);
+      mStore.addNotify("error", "Error pausing server-side mic Producer: " + e.getMessage());
+    }
+  }
+
+  @WorkerThread
+  private void unmuteMicImpl() {
+    mMicProducer.resume();
+
+    try {
+      mProtoo.syncRequest(
+          "resumeProducer", req -> jsonPut(req, "producerId", mMicProducer.getId()));
+      mStore.setProducerResumed(mMicProducer.getId());
+    } catch (ProtooException e) {
+      e.printStackTrace();
+      logError("unmuteMic() | failed:", e);
+      mStore.addNotify("error", "Error resuming server-side mic Producer: " + e.getMessage());
+    }
+  }
+
+  @WorkerThread
+  private void enableCamImpl() {
+    if (mCamProducer != null) {
+      return;
+    }
+    if (!mMediasoupDevice.isLoaded()) {
+      Logger.w(TAG, "enableCam() | not loaded");
+      return;
+    }
+    if (!mMediasoupDevice.canProduce("video")) {
+      Logger.w(TAG, "enableCam() | cannot produce video");
+      return;
+    }
+    if (mSendTransport == null) {
+      Logger.w(TAG, "enableCam() | mSendTransport doesn't ready");
+      return;
+    }
+    if (mLocalVideoTrack == null) {
+      mLocalVideoTrack = PeerConnectionUtils.createVideoTrack(mContext, "cam");
+      mLocalVideoTrack.setEnabled(true);
+    }
+    try {
+      mCamProducer =
+          mSendTransport.produce(
+              producer -> {
+                Logger.e(TAG, "onTransportClose(), camProducer");
+              },
+              mLocalVideoTrack,
+              null,
+              null);
+      mStore.addProducer(mCamProducer);
+    } catch (Throwable t) {
+      // TODO(HaiyangWu): define exception
+      t.printStackTrace();
+      logError("enableWebcam() | failed:", t);
+      mStore.addNotify("error", "Error enabling webcam: " + t.getMessage());
+      if (mLocalVideoTrack != null) {
+        mLocalVideoTrack.setEnabled(false);
+      }
+    }
+  }
+
+  @WorkerThread
+  private void disableCamImpl() {
+    if (mCamProducer == null) {
+      return;
+    }
+    mCamProducer.close();
+    mStore.removeProducer(mCamProducer.getId());
+
+    try {
+      mProtoo.syncRequest("closeProducer", req -> jsonPut(req, "producerId", mCamProducer.getId()));
+    } catch (ProtooException e) {
+      e.printStackTrace();
+      mStore.addNotify("error", "Error closing server-side webcam Producer: " + e.getMessage());
+    }
+    mCamProducer = null;
   }
 
   @WorkerThread

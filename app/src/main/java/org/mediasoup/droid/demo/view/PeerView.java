@@ -2,8 +2,6 @@ package org.mediasoup.droid.demo.view;
 
 import android.content.Context;
 import android.os.Build;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.widget.RelativeLayout;
@@ -15,12 +13,9 @@ import androidx.databinding.DataBindingUtil;
 
 import org.mediasoup.droid.demo.R;
 import org.mediasoup.droid.demo.databinding.ViewPeerBinding;
-import org.mediasoup.droid.demo.databinding.ViewPeerViewBinding;
-import org.mediasoup.droid.demo.vm.MeProps;
 import org.mediasoup.droid.demo.vm.PeerProps;
 import org.mediasoup.droid.lib.PeerConnectionUtils;
 import org.mediasoup.droid.lib.RoomClient;
-import org.webrtc.RendererCommon;
 
 public class PeerView extends RelativeLayout {
 

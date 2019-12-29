@@ -5,7 +5,6 @@ import androidx.annotation.NonNull;
 import org.json.JSONArray;
 import org.mediasoup.droid.Producer;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 

@@ -14,5 +14,6 @@
     <color name="text_u_color">#80ffffff</color>
 
     <color name="trans_bg">#80243B55</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
 
 </resources>

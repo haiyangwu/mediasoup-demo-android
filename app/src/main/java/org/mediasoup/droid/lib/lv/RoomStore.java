@@ -197,7 +197,8 @@ public class RoomStore {
   }
 
   public void setConsumerCurrentLayers(String consumerId, int spatialLayer, int temporalLayer) {
-    consumers.postValue(consumers -> consumers.setConsumerCurrentLayers(consumerId, spatialLayer, temporalLayer));
+    consumers.postValue(
+        consumers -> consumers.setConsumerCurrentLayers(consumerId, spatialLayer, temporalLayer));
   }
 
   public void setConsumerScore(String consumerId, JSONArray score) {
