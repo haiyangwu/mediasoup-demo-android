@@ -16,6 +16,7 @@ import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
 import org.mediasoup.droid.Device;
 import org.mediasoup.droid.Logger;
+import org.mediasoup.droid.MediasoupException;
 import org.mediasoup.droid.Producer;
 import org.mediasoup.droid.RecvTransport;
 import org.mediasoup.droid.SendTransport;
@@ -692,26 +693,26 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void enableMicImpl() {
-    if (mMicProducer != null) {
-      return;
-    }
-    if (!mMediasoupDevice.isLoaded()) {
-      Logger.w(TAG, "enableMic() | not loaded");
-      return;
-    }
-    if (!mMediasoupDevice.canProduce("audio")) {
-      Logger.w(TAG, "enableMic() | cannot produce audio");
-      return;
-    }
-    if (mSendTransport == null) {
-      Logger.w(TAG, "enableMic() | mSendTransport doesn't ready");
-      return;
-    }
-    if (mLocalAudioTrack == null) {
-      mLocalAudioTrack = PeerConnectionUtils.createAudioTrack(mContext, "mic");
-      mLocalAudioTrack.setEnabled(true);
-    }
     try {
+      if (mMicProducer != null) {
+        return;
+      }
+      if (!mMediasoupDevice.isLoaded()) {
+        Logger.w(TAG, "enableMic() | not loaded");
+        return;
+      }
+      if (!mMediasoupDevice.canProduce("audio")) {
+        Logger.w(TAG, "enableMic() | cannot produce audio");
+        return;
+      }
+      if (mSendTransport == null) {
+        Logger.w(TAG, "enableMic() | mSendTransport doesn't ready");
+        return;
+      }
+      if (mLocalAudioTrack == null) {
+        mLocalAudioTrack = PeerConnectionUtils.createAudioTrack(mContext, "mic");
+        mLocalAudioTrack.setEnabled(true);
+      }
       mMicProducer =
           mSendTransport.produce(
               producer -> {
@@ -721,11 +722,10 @@ public class RoomClient extends RoomMessageHandler {
               null,
               null);
       mStore.addProducer(mMicProducer);
-    } catch (Throwable t) {
-      // TODO(HaiyangWu): define exception
-      t.printStackTrace();
-      logError("enableMic() | failed:", t);
-      mStore.addNotify("error", "Error enabling microphone: " + t.getMessage());
+    } catch (MediasoupException e) {
+      e.printStackTrace();
+      logError("enableMic() | failed:", e);
+      mStore.addNotify("error", "Error enabling microphone: " + e.getMessage());
       if (mLocalAudioTrack != null) {
         mLocalAudioTrack.setEnabled(false);
       }
@@ -781,26 +781,26 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void enableCamImpl() {
-    if (mCamProducer != null) {
-      return;
-    }
-    if (!mMediasoupDevice.isLoaded()) {
-      Logger.w(TAG, "enableCam() | not loaded");
-      return;
-    }
-    if (!mMediasoupDevice.canProduce("video")) {
-      Logger.w(TAG, "enableCam() | cannot produce video");
-      return;
-    }
-    if (mSendTransport == null) {
-      Logger.w(TAG, "enableCam() | mSendTransport doesn't ready");
-      return;
-    }
-    if (mLocalVideoTrack == null) {
-      mLocalVideoTrack = PeerConnectionUtils.createVideoTrack(mContext, "cam");
-      mLocalVideoTrack.setEnabled(true);
-    }
     try {
+      if (mCamProducer != null) {
+        return;
+      }
+      if (!mMediasoupDevice.isLoaded()) {
+        Logger.w(TAG, "enableCam() | not loaded");
+        return;
+      }
+      if (!mMediasoupDevice.canProduce("video")) {
+        Logger.w(TAG, "enableCam() | cannot produce video");
+        return;
+      }
+      if (mSendTransport == null) {
+        Logger.w(TAG, "enableCam() | mSendTransport doesn't ready");
+        return;
+      }
+      if (mLocalVideoTrack == null) {
+        mLocalVideoTrack = PeerConnectionUtils.createVideoTrack(mContext, "cam");
+        mLocalVideoTrack.setEnabled(true);
+      }
       mCamProducer =
           mSendTransport.produce(
               producer -> {
@@ -810,11 +810,10 @@ public class RoomClient extends RoomMessageHandler {
               null,
               null);
       mStore.addProducer(mCamProducer);
-    } catch (Throwable t) {
-      // TODO(HaiyangWu): define exception
-      t.printStackTrace();
-      logError("enableWebcam() | failed:", t);
-      mStore.addNotify("error", "Error enabling webcam: " + t.getMessage());
+    } catch (MediasoupException e) {
+      e.printStackTrace();
+      logError("enableWebcam() | failed:", e);
+      mStore.addNotify("error", "Error enabling webcam: " + e.getMessage());
       if (mLocalVideoTrack != null) {
         mLocalVideoTrack.setEnabled(false);
       }
@@ -839,7 +838,7 @@ public class RoomClient extends RoomMessageHandler {
   }
 
   @WorkerThread
-  private void createSendTransport() throws JSONException, ProtooException {
+  private void createSendTransport() throws ProtooException, JSONException, MediasoupException {
     Logger.d(TAG, "createSendTransport()");
     String res =
         mProtoo.syncRequest(
@@ -866,7 +865,7 @@ public class RoomClient extends RoomMessageHandler {
   }
 
   @WorkerThread
-  private void createRecvTransport() throws Exception {
+  private void createRecvTransport() throws ProtooException, JSONException, MediasoupException {
     Logger.d(TAG, "createRecvTransport()");
 
     String res =
@@ -987,8 +986,8 @@ public class RoomClient extends RoomMessageHandler {
     return result.toString();
   }
 
-  private void logError(String message, Throwable t) {
-    Logger.e(TAG, message, t);
+  private void logError(String message, Throwable throwable) {
+    Logger.e(TAG, message, throwable);
   }
 
   private void onNewConsumer(Message.Request request, Protoo.ServerRequestHandler handler) {
