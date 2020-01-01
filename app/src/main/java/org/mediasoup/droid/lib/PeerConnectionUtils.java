@@ -26,6 +26,7 @@ import org.webrtc.VideoTrack;
 import org.webrtc.audio.AudioDeviceModule;
 import org.webrtc.audio.JavaAudioDeviceModule;
 
+@SuppressWarnings("WeakerAccess")
 public class PeerConnectionUtils {
 
   private static final String TAG = "PeerConnectionUtils";
@@ -240,6 +241,10 @@ public class PeerConnectionUtils {
   }
 
   public static synchronized void dispose() {
+    if (mCamCapture != null) {
+      mCamCapture.dispose();
+      mCamCapture = null;
+    }
     if (mVideoSource != null) {
       mVideoSource.dispose();
       mVideoSource = null;
@@ -247,10 +252,6 @@ public class PeerConnectionUtils {
     if (mAudioSource != null) {
       mAudioSource.dispose();
       mAudioSource = null;
-    }
-    if (mCamCapture != null) {
-      mCamCapture.dispose();
-      mCamCapture = null;
     }
   }
 }

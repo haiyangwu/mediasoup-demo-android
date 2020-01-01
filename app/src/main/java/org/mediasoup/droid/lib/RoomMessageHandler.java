@@ -27,7 +27,7 @@ class RoomMessageHandler {
     @NonNull final String peerId;
     @NonNull final Consumer mConsumer;
 
-    public ConsumerHolder(@NonNull String peerId, @NonNull Consumer consumer) {
+    ConsumerHolder(@NonNull String peerId, @NonNull Consumer consumer) {
       this.peerId = peerId;
       mConsumer = consumer;
     }
@@ -130,8 +130,8 @@ class RoomMessageHandler {
         }
       case "dataConsumerClosed":
         {
-          String dataConsumerId = data.getString("dataConsumerId");
           // TODO(HaiyangWu); support data consumer
+          // String dataConsumerId = data.getString("dataConsumerId");
           break;
         }
       case "activeSpeaker":

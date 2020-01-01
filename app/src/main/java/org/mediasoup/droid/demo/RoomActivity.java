@@ -203,6 +203,7 @@ public class RoomActivity extends AppCompatActivity {
     if (mRoomClient != null) {
       mRoomClient.close();
       mRoomClient.dispose();
+      mRoomClient = null;
     }
   }
 }

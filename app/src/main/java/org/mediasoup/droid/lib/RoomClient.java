@@ -480,6 +480,7 @@ public class RoomClient extends RoomMessageHandler {
     // TODO(feature): stats
   }
 
+  @Async
   public void close() {
     if (this.mClosed) {
       return;
@@ -493,35 +494,48 @@ public class RoomClient extends RoomMessageHandler {
       mProtoo = null;
     }
 
-    closeTransportAndDevice();
+    CountDownLatch countDownLatch = new CountDownLatch(1);
+    mWorkHandler.post(
+        () -> {
+          // Close All Transports created by device.
+          closeTransportAndDevice();
 
-    // dispose track and media source.
-    if (mLocalAudioTrack != null) {
-      mLocalAudioTrack.dispose();
-      mLocalAudioTrack = null;
-    }
-    if (mLocalVideoTrack != null) {
-      mLocalVideoTrack.dispose();
-      mLocalVideoTrack = null;
-    }
+          // dispose track and media source.
+          if (mLocalAudioTrack != null) {
+            mLocalAudioTrack.setEnabled(false);
+            mLocalAudioTrack.dispose();
+            mLocalAudioTrack = null;
+          }
+          if (mLocalVideoTrack != null) {
+            mLocalVideoTrack.setEnabled(false);
+            mLocalVideoTrack.dispose();
+            mLocalVideoTrack = null;
+          }
 
-    mStore.setRoomState(ConnectionState.CLOSED);
+          // Set room state.
+          mStore.setRoomState(ConnectionState.CLOSED);
+          countDownLatch.countDown();
+        });
+    try {
+      countDownLatch.await();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
+  @WorkerThread
   private void closeTransportAndDevice() {
     Logger.d(TAG, "closeTransportAndDevice()");
     // Close mediasoup Transports.
     if (mSendTransport != null) {
       mSendTransport.close();
-      // TODO(Bug): dispose
-//      mSendTransport.dispose();
+      mSendTransport.dispose();
       mSendTransport = null;
     }
 
     if (mRecvTransport != null) {
       mRecvTransport.close();
-      // TODO(Bug): dispose
-//      mRecvTransport.dispose();
+      mRecvTransport.dispose();
       mRecvTransport = null;
     }
 
@@ -693,6 +707,7 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void enableMicImpl() {
+    Logger.d(TAG, "enableMicImpl()");
     try {
       if (mMicProducer != null) {
         return;
@@ -717,6 +732,10 @@ public class RoomClient extends RoomMessageHandler {
           mSendTransport.produce(
               producer -> {
                 Logger.e(TAG, "onTransportClose(), micProducer");
+                if (mMicProducer != null) {
+                  mStore.removeProducer(mMicProducer.getId());
+                  mMicProducer = null;
+                }
               },
               mLocalAudioTrack,
               null,
@@ -734,6 +753,7 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void disableMicImpl() {
+    Logger.d(TAG, "disableMicImpl()");
     if (mMicProducer == null) {
       return;
     }
@@ -752,6 +772,7 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void muteMicImpl() {
+    Logger.d(TAG, "muteMicImpl()");
     mMicProducer.pause();
 
     try {
@@ -766,6 +787,7 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void unmuteMicImpl() {
+    Logger.d(TAG, "unmuteMicImpl()");
     mMicProducer.resume();
 
     try {
@@ -781,6 +803,7 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void enableCamImpl() {
+    Logger.d(TAG, "enableCamImpl()");
     try {
       if (mCamProducer != null) {
         return;
@@ -805,6 +828,10 @@ public class RoomClient extends RoomMessageHandler {
           mSendTransport.produce(
               producer -> {
                 Logger.e(TAG, "onTransportClose(), camProducer");
+                if (mCamProducer != null) {
+                  mStore.removeProducer(mCamProducer.getId());
+                  mCamProducer = null;
+                }
               },
               mLocalVideoTrack,
               null,
@@ -822,6 +849,7 @@ public class RoomClient extends RoomMessageHandler {
 
   @WorkerThread
   private void disableCamImpl() {
+    Logger.d(TAG, "disableCamImpl()");
     if (mCamProducer == null) {
       return;
     }
