@@ -33,11 +33,11 @@
         <activity
             android:name=".RoomActivity"
             android:label="@string/title_activity_room"
-            android:screenOrientation="portrait" />
+            android:screenOrientation="portrait"
+            android:launchMode="singleInstance"/>
         <activity
             android:name=".SettingsActivity"
             android:label="@string/title_activity_settings"
-            android:parentActivityName=".RoomActivity"
             android:screenOrientation="portrait" />
     </application>
 

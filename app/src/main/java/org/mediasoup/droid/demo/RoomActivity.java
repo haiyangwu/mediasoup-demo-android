@@ -13,6 +13,7 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.databinding.DataBindingUtil;
 import androidx.lifecycle.Observer;
@@ -43,12 +44,13 @@ import static org.mediasoup.droid.lib.Utils.getRandomString;
 public class RoomActivity extends AppCompatActivity {
 
   private static final String TAG = RoomActivity.class.getSimpleName();
+  private static final int REQUEST_CODE_SETTING = 1;
 
   private String mRoomId, mPeerId, mDisplayName;
   private boolean mForceH264, mForceVP9;
 
-  private RoomOptions mOptions = new RoomOptions();
-  private RoomStore mRoomStore = new RoomStore();
+  private RoomOptions mOptions;
+  private RoomStore mRoomStore;
   private RoomClient mRoomClient;
 
   private ActivityRoomBinding mBinding;
@@ -58,11 +60,19 @@ public class RoomActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     mBinding = DataBindingUtil.setContentView(this, R.layout.activity_room);
-
-    loadRoomConfig();
-    initRoomClient();
-    initViewModel();
+    createRoom();
     checkPermission();
+  }
+
+  private void createRoom() {
+    mOptions = new RoomOptions();
+    loadRoomConfig();
+
+    mRoomStore = new RoomStore();
+    initRoomClient();
+
+    getViewModelStore().clear();
+    initViewModel();
   }
 
   private void loadRoomConfig() {
@@ -164,7 +174,9 @@ public class RoomActivity extends AppCompatActivity {
         @Override
         public void onGranted() {
           Logger.d(TAG, "permission granted");
-          mRoomClient.join();
+          if (mRoomClient != null) {
+            mRoomClient.join();
+          }
         }
       };
 
@@ -181,6 +193,16 @@ public class RoomActivity extends AppCompatActivity {
     Permissions.check(this, permissions, rationale, options, permissionHandler);
   }
 
+  private void destroyRoom() {
+    if (mRoomClient != null) {
+      mRoomClient.close();
+      mRoomClient = null;
+    }
+    if (mRoomStore != null) {
+      mRoomStore = null;
+    }
+  }
+
   @Override
   public boolean onCreateOptionsMenu(Menu menu) {
     getMenuInflater().inflate(R.menu.room_menu, menu);
@@ -191,19 +213,32 @@ public class RoomActivity extends AppCompatActivity {
   public boolean onOptionsItemSelected(MenuItem item) {
     // Handle item selection
     if (item.getItemId() == R.id.setting) {
-      startActivity(new Intent(this, SettingsActivity.class));
+      Intent intent = new Intent(this, SettingsActivity.class);
+      startActivityForResult(intent, REQUEST_CODE_SETTING);
       return true;
+    } else {
+      return super.onOptionsItemSelected(item);
     }
-    return super.onOptionsItemSelected(item);
+  }
+
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+    if (requestCode == REQUEST_CODE_SETTING) {
+      Logger.d(TAG, "request config done");
+      // close, dispose room related and clear store.
+      destroyRoom();
+      // local config and reCreate room related.
+      createRoom();
+      // check permission again. if granted, join room.
+      checkPermission();
+    } else {
+      super.onActivityResult(requestCode, resultCode, data);
+    }
   }
 
   @Override
   protected void onDestroy() {
     super.onDestroy();
-    if (mRoomClient != null) {
-      mRoomClient.close();
-      mRoomClient.dispose();
-      mRoomClient = null;
-    }
+    destroyRoom();
   }
 }

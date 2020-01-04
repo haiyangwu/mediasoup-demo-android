@@ -29,9 +29,6 @@ import org.webrtc.AudioTrack;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.VideoTrack;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
 import io.reactivex.disposables.CompositeDisposable;
 
 import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
@@ -51,9 +48,11 @@ public class RoomClient extends RoomMessageHandler {
   }
 
   // Closed flag.
-  private boolean mClosed;
+  private volatile boolean mClosed;
   // Android context.
   private final Context mContext;
+  // PeerConnection util.
+  private PeerConnectionUtils mPeerConnectionUtils;
   // Room mOptions.
   private final @NonNull RoomOptions mOptions;
   // Display name.
@@ -128,22 +127,23 @@ public class RoomClient extends RoomMessageHandler {
     this.mStore.setRoomUrl(roomId, UrlFactory.getInvitationLink(roomId, forceH264, forceVP9));
     this.mPreferences = PreferenceManager.getDefaultSharedPreferences(this.mContext);
 
-    // support for selfSigned cert.
-    UrlFactory.enableSelfSignedHttpClient();
-
     // init worker handler.
     HandlerThread handlerThread = new HandlerThread("worker");
     handlerThread.start();
     mWorkHandler = new Handler(handlerThread.getLooper());
     mMainHandler = new Handler(Looper.getMainLooper());
+    mWorkHandler.post(() -> mPeerConnectionUtils = new PeerConnectionUtils());
   }
 
   @Async
   public void join() {
     Logger.d(TAG, "join() " + this.mProtooUrl);
     mStore.setRoomState(ConnectionState.CONNECTING);
-    WebSocketTransport transport = new WebSocketTransport(mProtooUrl);
-    mProtoo = new Protoo(transport, peerListener);
+    mWorkHandler.post(
+        () -> {
+          WebSocketTransport transport = new WebSocketTransport(mProtooUrl);
+          mProtoo = new Protoo(transport, peerListener);
+        });
   }
 
   @Async
@@ -193,7 +193,7 @@ public class RoomClient extends RoomMessageHandler {
     mStore.setCamInProgress(true);
     mWorkHandler.post(
         () ->
-            PeerConnectionUtils.switchCam(
+            mPeerConnectionUtils.switchCam(
                 new CameraVideoCapturer.CameraSwitchHandler() {
                   @Override
                   public void onCameraSwitchDone(boolean b) {
@@ -488,44 +488,48 @@ public class RoomClient extends RoomMessageHandler {
     this.mClosed = true;
     Logger.d(TAG, "close()");
 
-    // Close mProtoo Protoo
-    if (mProtoo != null) {
-      mProtoo.close();
-      mProtoo = null;
-    }
-
-    CountDownLatch countDownLatch = new CountDownLatch(1);
     mWorkHandler.post(
         () -> {
-          // Close All Transports created by device.
-          closeTransportAndDevice();
+          // Close mProtoo Protoo
+          if (mProtoo != null) {
+            mProtoo.close();
+            mProtoo = null;
+          }
 
-          // dispose track and media source.
+          // dispose all transport and device.
+          disposeTransportDevice();
+
+          // dispose audio track.
           if (mLocalAudioTrack != null) {
             mLocalAudioTrack.setEnabled(false);
             mLocalAudioTrack.dispose();
             mLocalAudioTrack = null;
           }
+
+          // dispose video track.
           if (mLocalVideoTrack != null) {
             mLocalVideoTrack.setEnabled(false);
             mLocalVideoTrack.dispose();
             mLocalVideoTrack = null;
           }
 
-          // Set room state.
-          mStore.setRoomState(ConnectionState.CLOSED);
-          countDownLatch.countDown();
+          // dispose peerConnection.
+          mPeerConnectionUtils.dispose();
+
+          // quit worker handler thread.
+          mWorkHandler.getLooper().quit();
         });
-    try {
-      countDownLatch.await();
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
+
+    // dispose request.
+    mCompositeDisposable.dispose();
+
+    // Set room state.
+    mStore.setRoomState(ConnectionState.CLOSED);
   }
 
   @WorkerThread
-  private void closeTransportAndDevice() {
-    Logger.d(TAG, "closeTransportAndDevice()");
+  private void disposeTransportDevice() {
+    Logger.d(TAG, "disposeTransportDevice()");
     // Close mediasoup Transports.
     if (mSendTransport != null) {
       mSendTransport.close();
@@ -544,17 +548,6 @@ public class RoomClient extends RoomMessageHandler {
       mMediasoupDevice.dispose();
       mMediasoupDevice = null;
     }
-  }
-
-  public void dispose() {
-    // quit worker handler thread.
-    mWorkHandler.getLooper().quit();
-
-    // dispose request.
-    mCompositeDisposable.dispose();
-
-    // dispose PeerConnectionUtils.
-    PeerConnectionUtils.dispose();
   }
 
   private Protoo.Listener peerListener =
@@ -630,12 +623,15 @@ public class RoomClient extends RoomMessageHandler {
 
                 // Close All Transports created by device.
                 // All will reCreated After ReJoin.
-                closeTransportAndDevice();
+                disposeTransportDevice();
               });
         }
 
         @Override
         public void onClose() {
+          if (mClosed) {
+            return;
+          }
           mWorkHandler.post(
               () -> {
                 if (mClosed) {
@@ -725,7 +721,7 @@ public class RoomClient extends RoomMessageHandler {
         return;
       }
       if (mLocalAudioTrack == null) {
-        mLocalAudioTrack = PeerConnectionUtils.createAudioTrack(mContext, "mic");
+        mLocalAudioTrack = mPeerConnectionUtils.createAudioTrack(mContext, "mic");
         mLocalAudioTrack.setEnabled(true);
       }
       mMicProducer =
@@ -820,8 +816,9 @@ public class RoomClient extends RoomMessageHandler {
         Logger.w(TAG, "enableCam() | mSendTransport doesn't ready");
         return;
       }
+
       if (mLocalVideoTrack == null) {
-        mLocalVideoTrack = PeerConnectionUtils.createVideoTrack(mContext, "cam");
+        mLocalVideoTrack = mPeerConnectionUtils.createVideoTrack(mContext, "cam");
         mLocalVideoTrack.setEnabled(true);
       }
       mCamProducer =
@@ -927,6 +924,9 @@ public class RoomClient extends RoomMessageHandler {
         @Override
         public String onProduce(
             Transport transport, String kind, String rtpParameters, String appData) {
+          if (mClosed) {
+            return "";
+          }
           Logger.d(listenerTAG, "onProduce() ");
           String producerId =
               fetchProduceId(
@@ -942,6 +942,9 @@ public class RoomClient extends RoomMessageHandler {
 
         @Override
         public void onConnect(Transport transport, String dtlsParameters) {
+          if (mClosed) {
+            return;
+          }
           Logger.d(listenerTAG + "_send", "onConnect()");
           mCompositeDisposable.add(
               mProtoo
@@ -969,6 +972,9 @@ public class RoomClient extends RoomMessageHandler {
 
         @Override
         public void onConnect(Transport transport, String dtlsParameters) {
+          if (mClosed) {
+            return;
+          }
           Logger.d(listenerTAG, "onConnect()");
           mCompositeDisposable.add(
               mProtoo
@@ -990,28 +996,15 @@ public class RoomClient extends RoomMessageHandler {
       };
 
   private String fetchProduceId(Protoo.RequestGenerator generator) {
-    StringBuffer result = new StringBuffer();
-    CountDownLatch countDownLatch = new CountDownLatch(1);
-    mCompositeDisposable.add(
-        mProtoo
-            .request("produce", generator)
-            .map(data -> toJsonObject(data).optString("id"))
-            .subscribe(
-                id -> {
-                  result.append(id);
-                  countDownLatch.countDown();
-                },
-                t -> {
-                  logError("send produce request failed", t);
-                  countDownLatch.countDown();
-                }));
+    Logger.d(TAG, "fetchProduceId:()");
     try {
-      // TODO(HaiyangWU): timeout or better solution ?
-      countDownLatch.await(5000, TimeUnit.MILLISECONDS);
-    } catch (InterruptedException e) {
+      String response = mProtoo.syncRequest("produce", generator);
+      return new JSONObject(response).optString("id");
+    } catch (ProtooException | JSONException e) {
       e.printStackTrace();
+      logError("send produce request failed", e);
+      return "";
     }
-    return result.toString();
   }
 
   private void logError(String message, Throwable throwable) {
@@ -1080,7 +1073,7 @@ public class RoomClient extends RoomMessageHandler {
       mProtoo.syncRequest("pause" + "", req -> jsonPut(req, "consumerId", consumer.getId()));
       consumer.pause();
       mStore.setConsumerPaused(consumer.getId(), "local");
-    } catch (Exception e) {
+    } catch (ProtooException e) {
       e.printStackTrace();
       logError("pauseConsumer() | failed:", e);
       mStore.addNotify("error", "Error pausing Consumer: " + e.getMessage());

@@ -19,6 +19,7 @@ import org.webrtc.EglBase;
 import org.webrtc.MediaConstraints;
 import org.webrtc.PeerConnectionFactory;
 import org.webrtc.SurfaceTextureHelper;
+import org.webrtc.ThreadUtils;
 import org.webrtc.VideoDecoderFactory;
 import org.webrtc.VideoEncoderFactory;
 import org.webrtc.VideoSource;
@@ -30,23 +31,35 @@ import org.webrtc.audio.JavaAudioDeviceModule;
 public class PeerConnectionUtils {
 
   private static final String TAG = "PeerConnectionUtils";
-  private static EglBase mEglBase;
-  private static PeerConnectionFactory mPeerConnectionFactory;
 
-  private static AudioSource mAudioSource;
-  private static VideoSource mVideoSource;
-  private static CameraVideoCapturer mCamCapture;
   private static String mPreferCameraFace;
+  private static EglBase mEglBase = EglBase.create();
+
+  public static EglBase.Context getEglContext() {
+    return mEglBase.getEglBaseContext();
+  }
+
+  public static void setPreferCameraFace(String preferCameraFace) {
+    mPreferCameraFace = preferCameraFace;
+  }
+
+  private final ThreadUtils.ThreadChecker mThreadChecker;
+  private PeerConnectionFactory mPeerConnectionFactory;
+
+  private AudioSource mAudioSource;
+  private VideoSource mVideoSource;
+  private CameraVideoCapturer mCamCapture;
+
+  public PeerConnectionUtils() {
+    mThreadChecker = new ThreadUtils.ThreadChecker();
+  }
 
   // PeerConnection factory creation.
-  private static void createPeerConnectionFactory(Context context) {
+  private void createPeerConnectionFactory(Context context) {
     Logger.d(TAG, "createPeerConnectionFactory()");
+    mThreadChecker.checkIsOnValidThread();
     PeerConnectionFactory.Builder builder = PeerConnectionFactory.builder();
     builder.setOptions(null);
-
-    if (mEglBase == null) {
-      mEglBase = EglBase.create();
-    }
 
     AudioDeviceModule adm = createJavaAudioDevice(context);
     VideoEncoderFactory encoderFactory =
@@ -63,14 +76,9 @@ public class PeerConnectionUtils {
             .createPeerConnectionFactory();
   }
 
-  public static synchronized EglBase.Context getEglContext() {
-    if (mEglBase == null) {
-      mEglBase = EglBase.create();
-    }
-    return mEglBase.getEglBaseContext();
-  }
-
-  private static AudioDeviceModule createJavaAudioDevice(Context appContext) {
+  private AudioDeviceModule createJavaAudioDevice(Context appContext) {
+    Logger.d(TAG, "createJavaAudioDevice()");
+    mThreadChecker.checkIsOnValidThread();
     // Enable/disable OpenSL ES playback.
     // Set audio record error callbacks.
     JavaAudioDeviceModule.AudioRecordErrorCallback audioRecordErrorCallback =
@@ -118,8 +126,9 @@ public class PeerConnectionUtils {
   }
 
   // Audio source creation.
-  private static void createAudioSource(Context context) {
+  private void createAudioSource(Context context) {
     Logger.d(TAG, "createAudioSource()");
+    mThreadChecker.checkIsOnValidThread();
     if (mPeerConnectionFactory == null) {
       createPeerConnectionFactory(context);
     }
@@ -127,11 +136,9 @@ public class PeerConnectionUtils {
     mAudioSource = mPeerConnectionFactory.createAudioSource(new MediaConstraints());
   }
 
-  public static synchronized void setPreferCameraFace(String preferCameraFace) {
-    mPreferCameraFace = preferCameraFace;
-  }
-
-  private static void createCamCapture(Context context) {
+  private void createCamCapture(Context context) {
+    Logger.d(TAG, "createCamCapture()");
+    mThreadChecker.checkIsOnValidThread();
     boolean isCamera2Supported = Camera2Enumerator.isSupported(context);
     CameraEnumerator cameraEnumerator;
 
@@ -198,7 +205,9 @@ public class PeerConnectionUtils {
     }
   }
 
-  public static synchronized void switchCam(CameraVideoCapturer.CameraSwitchHandler switchHandler) {
+  public void switchCam(CameraVideoCapturer.CameraSwitchHandler switchHandler) {
+    Logger.d(TAG, "switchCam()");
+    mThreadChecker.checkIsOnValidThread();
     if (mCamCapture != null) {
       mCamCapture.switchCamera(switchHandler);
     }
@@ -206,7 +215,9 @@ public class PeerConnectionUtils {
 
   // Video source creation.
   @MainThread
-  private static void createVideoSource(Context context) {
+  private void createVideoSource(Context context) {
+    Logger.d(TAG, "createVideoSource()");
+    mThreadChecker.checkIsOnValidThread();
     if (mPeerConnectionFactory == null) {
       createPeerConnectionFactory(context);
     }
@@ -223,8 +234,9 @@ public class PeerConnectionUtils {
   }
 
   // Audio track creation.
-  public static synchronized AudioTrack createAudioTrack(Context context, String id) {
+  public AudioTrack createAudioTrack(Context context, String id) {
     Logger.d(TAG, "createAudioTrack()");
+    mThreadChecker.checkIsOnValidThread();
     if (mAudioSource == null) {
       createAudioSource(context);
     }
@@ -232,7 +244,9 @@ public class PeerConnectionUtils {
   }
 
   // Video track creation.
-  public static synchronized VideoTrack createVideoTrack(Context context, String id) {
+  public VideoTrack createVideoTrack(Context context, String id) {
+    Logger.d(TAG, "createVideoTrack()");
+    mThreadChecker.checkIsOnValidThread();
     if (mVideoSource == null) {
       createVideoSource(context);
     }
@@ -240,18 +254,27 @@ public class PeerConnectionUtils {
     return mPeerConnectionFactory.createVideoTrack(id, mVideoSource);
   }
 
-  public static synchronized void dispose() {
+  public void dispose() {
+    Logger.w(TAG, "dispose()");
+    mThreadChecker.checkIsOnValidThread();
     if (mCamCapture != null) {
       mCamCapture.dispose();
       mCamCapture = null;
     }
+
     if (mVideoSource != null) {
       mVideoSource.dispose();
       mVideoSource = null;
     }
+
     if (mAudioSource != null) {
       mAudioSource.dispose();
       mAudioSource = null;
+    }
+
+    if (mPeerConnectionFactory != null) {
+      mPeerConnectionFactory.dispose();
+      mPeerConnectionFactory = null;
     }
   }
 }

@@ -1,33 +1,51 @@
 package org.mediasoup.droid.lib.socket;
 
 import android.os.Handler;
-import android.os.Looper;
+import android.os.HandlerThread;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.json.JSONObject;
 import org.mediasoup.droid.Logger;
 import org.protoojs.droid.Message;
 import org.protoojs.droid.transports.AbsWebSocketTransport;
 
-import io.crossbar.autobahn.websocket.WebSocketConnection;
-import io.crossbar.autobahn.websocket.exceptions.WebSocketException;
-import io.crossbar.autobahn.websocket.interfaces.IWebSocketConnectionHandler;
-import io.crossbar.autobahn.websocket.types.ConnectionResponse;
+import java.security.cert.CertificateException;
+import java.util.concurrent.CountDownLatch;
 
-public class WebSocketTransport extends AbsWebSocketTransport
-    implements IWebSocketConnectionHandler {
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okhttp3.logging.HttpLoggingInterceptor;
+import okio.ByteString;
+
+import static org.apache.http.conn.ssl.SSLSocketFactory.SSL;
+
+public class WebSocketTransport extends AbsWebSocketTransport {
 
   // Log tag.
   private static final String TAG = "WebSocketTransport";
   // Closed flag.
   private boolean mClosed;
+  // Connected flag.
+  private boolean mConnected;
+  // OKHttpClient.
+  private final OkHttpClient mOkHttpClient;
+  // Handler associate to current thread.
+  private final Handler mHandler;
   // Retry operation.
-  private RetryStrategy mRetryStrategy;
-  // WebSocketConnection instance.
-  private WebSocketConnection mWebSocketConnection;
+  private final RetryStrategy mRetryStrategy;
+  // WebSocket instance.
+  private WebSocket mWebSocket;
   // Listener.
   private Listener mListener;
-
-  private Handler mHandler = new Handler(Looper.getMainLooper());
 
   private static class RetryStrategy {
 
@@ -36,7 +54,7 @@ public class WebSocketTransport extends AbsWebSocketTransport
     private final int minTimeout;
     private final int maxTimeout;
 
-    private int retryCount = 0;
+    private int retryCount = 1;
 
     RetryStrategy(int retries, int factor, int minTimeout, int maxTimeout) {
       this.retries = retries;
@@ -50,7 +68,6 @@ public class WebSocketTransport extends AbsWebSocketTransport
     }
 
     int getReconnectInterval() {
-      Logger.d(TAG, "getReconnectInterval() ");
       if (retryCount > retries) {
         return -1;
       }
@@ -68,37 +85,42 @@ public class WebSocketTransport extends AbsWebSocketTransport
 
   public WebSocketTransport(String url) {
     super(url);
+    mOkHttpClient = getUnsafeOkHttpClient();
+    HandlerThread handlerThread = new HandlerThread("socket");
+    handlerThread.start();
+    mHandler = new Handler(handlerThread.getLooper());
     mRetryStrategy = new RetryStrategy(10, 2, 1000, 8 * 1000);
-    mWebSocketConnection = new WebSocketConnection();
   }
 
   @Override
   public void connect(Listener listener) {
+    Logger.d(TAG, "connect()");
     mListener = listener;
-    try {
-      String[] wsSubprotocols = {"protoo"};
-      mWebSocketConnection.connect(mUrl, wsSubprotocols, this, null, null);
-    } catch (WebSocketException ex) {
-      Logger.e(TAG, "", ex);
-    }
+    mHandler.post(this::newWebSocket);
+  }
+
+  private void newWebSocket() {
+    mWebSocket = null;
+    mOkHttpClient.newWebSocket(
+        new Request.Builder().url(mUrl).addHeader("Sec-WebSocket-Protocol", "protoo").build(),
+        new ProtooWebSocketListener());
   }
 
   private boolean scheduleReconnect() {
-    Logger.d(TAG, "scheduleReconnect()");
     int reconnectInterval = mRetryStrategy.getReconnectInterval();
     if (reconnectInterval == -1) {
       return false;
     }
+    Logger.d(TAG, "scheduleReconnect() ");
     mHandler.postDelayed(
         () -> {
           if (mClosed) {
             return;
           }
-          if (mWebSocketConnection != null) {
-            Logger.d(TAG, "doing reconnect job");
-            mWebSocketConnection.reconnect();
-            mRetryStrategy.retried();
-          }
+          Logger.w(TAG, "doing reconnect job, retryCount: " + mRetryStrategy.retryCount);
+          mOkHttpClient.dispatcher().cancelAll();
+          newWebSocket();
+          mRetryStrategy.retried();
         },
         reconnectInterval);
     return true;
@@ -110,7 +132,15 @@ public class WebSocketTransport extends AbsWebSocketTransport
       throw new IllegalStateException("transport closed");
     }
     String payload = message.toString();
-    mWebSocketConnection.sendMessage(payload);
+    mHandler.post(
+        () -> {
+          if (mClosed) {
+            return;
+          }
+          if (mWebSocket != null) {
+            mWebSocket.send(payload);
+          }
+        });
     return payload;
   }
 
@@ -119,8 +149,22 @@ public class WebSocketTransport extends AbsWebSocketTransport
     if (mClosed) {
       return;
     }
+    mClosed = true;
     Logger.d(TAG, "close()");
-    mWebSocketConnection.sendClose();
+    final CountDownLatch countDownLatch = new CountDownLatch(1);
+    mHandler.post(
+        () -> {
+          if (mWebSocket != null) {
+            mWebSocket.close(1000, "bye");
+            mWebSocket = null;
+          }
+          countDownLatch.countDown();
+        });
+    try {
+      countDownLatch.await();
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
   }
 
   @Override
@@ -128,96 +172,134 @@ public class WebSocketTransport extends AbsWebSocketTransport
     return mClosed;
   }
 
-  @Override
-  public void onConnect(ConnectionResponse response) {
-    Logger.d(TAG, "onConnect()");
-  }
+  private class ProtooWebSocketListener extends WebSocketListener {
 
-  @Override
-  public void onOpen() {
-    if (mClosed) {
-      return;
-    }
-    Logger.d(TAG, "onOpen()");
-    if (mListener != null) {
-      mListener.onOpen();
-    }
-    mRetryStrategy.reset();
-  }
-
-  @Override
-  public void onClose(int code, String reason) {
-    if (mClosed) {
-      return;
-    }
-
-    if (code == IWebSocketConnectionHandler.CLOSE_RECONNECT) {
-      throw new IllegalStateException("reconnect should out of WebSocketConnection");
-    }
-
-    Logger.w(TAG, "onClose() code: " + code + ", reason: " + reason);
-
-    boolean shouldReconnect =
-        (code == IWebSocketConnectionHandler.CLOSE_CANNOT_CONNECT)
-            || (code == IWebSocketConnectionHandler.CLOSE_CONNECTION_LOST);
-
-    if (shouldReconnect && scheduleReconnect()) {
-      if (mListener != null) {
-        if (code == IWebSocketConnectionHandler.CLOSE_CANNOT_CONNECT) {
-          mListener.onFail();
-        } else {
-          mListener.onDisconnected();
-        }
+    @Override
+    public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
+      if (mClosed) {
+        return;
       }
-      return;
+      Logger.d(TAG, "onOpen() ");
+      mWebSocket = webSocket;
+      mConnected = true;
+      if (mListener != null) {
+        mListener.onOpen();
+      }
+      mRetryStrategy.reset();
     }
 
-    mClosed = true;
-    if (mListener != null) {
-      mListener.onClose();
+    @Override
+    public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+      Logger.w(TAG, "onClosed()");
+      if (mClosed) {
+        return;
+      }
+      mClosed = true;
+      mConnected = false;
+      mRetryStrategy.reset();
+      if (mListener != null) {
+        mListener.onClose();
+      }
     }
-    mRetryStrategy.reset();
-  }
 
-  @Override
-  public void onMessage(String payload) {
-    Logger.d(TAG, "onMessage()");
-    Message message = Message.parse(payload);
-    if (message == null) {
-      return;
+    @Override
+    public void onClosing(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+      Logger.w(TAG, "onClosing()");
     }
-    if (mListener != null) {
-      mListener.onMessage(message);
+
+    @Override
+    public void onFailure(
+        @NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
+      Logger.w(TAG, "onFailure()");
+      if (mClosed) {
+        return;
+      }
+      if (scheduleReconnect()) {
+        if (mListener != null) {
+          if (mConnected) {
+            mListener.onFail();
+          } else {
+            mListener.onDisconnected();
+          }
+        }
+      } else {
+        Logger.e(TAG, "give up reconnect. notify closed");
+        mClosed = true;
+        if (mListener != null) {
+          mListener.onClose();
+        }
+        mRetryStrategy.reset();
+      }
+    }
+
+    @Override
+    public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
+      Logger.d(TAG, "onMessage()");
+      if (mClosed) {
+        return;
+      }
+      Message message = Message.parse(text);
+      if (message == null) {
+        return;
+      }
+      if (mListener != null) {
+        mListener.onMessage(message);
+      }
+    }
+
+    @Override
+    public void onMessage(@NotNull WebSocket webSocket, @NotNull ByteString bytes) {
+      Logger.d(TAG, "onMessage()");
     }
   }
 
-  @Override
-  public void onMessage(byte[] payload, boolean isBinary) {
-    Logger.d(TAG, "onMessage()");
-  }
+  private OkHttpClient getUnsafeOkHttpClient() {
+    try {
+      final TrustManager[] trustAllCerts =
+          new TrustManager[] {
+            new X509TrustManager() {
 
-  @Override
-  public void onPing() {
-    Logger.d(TAG, "onPing()");
-  }
+              @Override
+              public void checkClientTrusted(
+                  java.security.cert.X509Certificate[] chain, String authType)
+                  throws CertificateException {}
 
-  @Override
-  public void onPing(byte[] payload) {
-    Logger.d(TAG, "onPing()");
-  }
+              @Override
+              public void checkServerTrusted(
+                  java.security.cert.X509Certificate[] chain, String authType)
+                  throws CertificateException {}
 
-  @Override
-  public void onPong() {
-    Logger.d(TAG, "onPong()");
-  }
+              // Called reflectively by X509TrustManagerExtensions.
+              public void checkServerTrusted(
+                  java.security.cert.X509Certificate[] chain, String authType, String host) {}
 
-  @Override
-  public void onPong(byte[] payload) {
-    Logger.d(TAG, "onPong()");
-  }
+              @Override
+              public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                return new java.security.cert.X509Certificate[] {};
+              }
+            }
+          };
 
-  @Override
-  public void setConnection(WebSocketConnection connection) {
-    Logger.d(TAG, "setConnection()");
+      final SSLContext sslContext = SSLContext.getInstance(SSL);
+      sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+
+      final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+
+      HttpLoggingInterceptor httpLoggingInterceptor =
+          new HttpLoggingInterceptor(s -> Logger.d(TAG, s));
+      httpLoggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BASIC);
+
+      OkHttpClient.Builder builder =
+          new OkHttpClient.Builder()
+              .addInterceptor(httpLoggingInterceptor)
+              .retryOnConnectionFailure(true);
+      builder.sslSocketFactory(sslSocketFactory, (X509TrustManager) trustAllCerts[0]);
+
+      builder.hostnameVerifier((hostname, session) -> true);
+
+      return builder.build();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }
