@@ -90,7 +90,7 @@ public class MeView extends RelativeLayout {
         });
     mBinding.cam.setOnClickListener(
         view -> {
-          if (MeProps.DeviceState.ON.equals(props.getMicState().get())) {
+          if (MeProps.DeviceState.ON.equals(props.getCamState().get())) {
             roomClient.disableCam();
           } else {
             roomClient.enableCam();
