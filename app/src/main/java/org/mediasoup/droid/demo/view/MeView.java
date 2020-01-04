@@ -74,6 +74,8 @@ public class MeView extends RelativeLayout {
           // TODO(HaiyangWU): Handle inner click event;
         });
 
+    mBinding.peerView.videoRenderer.setZOrderMediaOverlay(true);
+
     // set view model.
     mBinding.setMeProps(props);
 
