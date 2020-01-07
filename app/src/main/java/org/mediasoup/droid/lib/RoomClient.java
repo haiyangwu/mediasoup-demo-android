@@ -29,7 +29,6 @@ import org.protoojs.droid.ProtooException;
 import org.webrtc.AudioTrack;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.VideoTrack;
-import org.webrtc.voiceengine.WebRtcAudioTrack;
 
 import io.reactivex.disposables.CompositeDisposable;
 
@@ -267,14 +266,30 @@ public class RoomClient extends RoomMessageHandler {
   public void muteAudio() {
     Logger.d(TAG, "muteAudio()");
     mStore.setAudioMutedState(true);
-    WebRtcAudioTrack.setSpeakerMute(true);
+    mWorkHandler.post(
+        () -> {
+          for (ConsumerHolder holder : mConsumers.values()) {
+            if (!"audio".equals(holder.mConsumer.getKind())) {
+              continue;
+            }
+            pauseConsumer(holder.mConsumer);
+          }
+        });
   }
 
   @Async
   public void unmuteAudio() {
     Logger.d(TAG, "unmuteAudio()");
     mStore.setAudioMutedState(false);
-    WebRtcAudioTrack.setSpeakerMute(false);
+    mWorkHandler.post(
+        () -> {
+          for (ConsumerHolder holder : mConsumers.values()) {
+            if (!"audio".equals(holder.mConsumer.getKind())) {
+              continue;
+            }
+            resumeConsumer(holder.mConsumer);
+          }
+        });
   }
 
   @Async
