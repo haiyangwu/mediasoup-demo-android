@@ -108,8 +108,8 @@ class RoomMessageHandler {
       case "consumerLayersChanged":
         {
           String consumerId = data.getString("consumerId");
-          int spatialLayer = data.getInt("spatialLayer");
-          int temporalLayer = data.getInt("temporalLayer");
+          int spatialLayer = data.optInt("spatialLayer");
+          int temporalLayer = data.optInt("temporalLayer");
           ConsumerHolder holder = mConsumers.get(consumerId);
           if (holder == null) {
             break;

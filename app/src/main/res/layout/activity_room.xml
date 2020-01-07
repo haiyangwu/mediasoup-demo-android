@@ -13,7 +13,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/bg"
+        android:background="@drawable/bg_room"
         android:orientation="vertical"
         tools:context=".RoomActivity">
 
@@ -27,11 +27,12 @@
             android:id="@+id/room_state"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="5dp"
+            android:layout_marginStart="10dp"
             android:layout_marginTop="5dp"
+            android:padding="5dp"
             android:src="@drawable/ic_state_new_close"
-            bind:animation="@{roomProps.animation}"
-            bind:edias_state="@{roomProps.connectionState}" />
+            bind:edias_state="@{roomProps.connectionState}"
+            bind:edias_state_animation="@{roomProps.getConnectingAnimation}" />
 
         <TextView
             android:id="@+id/invitation_link"
@@ -48,12 +49,52 @@
             android:textSize="15sp"
             bind:edias_link="@{roomProps.invitationLink}" />
 
+        <ImageView
+            android:id="@+id/hide_videos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_above="@+id/mute_audio"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="5dp"
+            android:background="@drawable/bg_left_box_off"
+            android:padding="8dp"
+            android:src="@drawable/icon_video_white_off"
+            bind:edias_hide_videos="@{roomProps.audioOnly}"
+            bind:edias_hide_videos_progress="@{roomProps.audioOnlyInProgress}" />
+
+        <ImageView
+            android:id="@+id/mute_audio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="5dp"
+            android:background="@drawable/bg_left_box_off"
+            android:padding="8dp"
+            android:src="@drawable/icon_volume_white_off"
+            bind:edias_audio_muted="@{roomProps.audioMuted}" />
+
+        <ImageView
+            android:id="@+id/restart_ice"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/mute_audio"
+            android:layout_marginStart="10dp"
+            android:layout_marginBottom="5dp"
+            android:background="@drawable/bg_left_box"
+            android:padding="8dp"
+            android:src="@drawable/icon_restart_ice_white"
+            bind:edias_restart_ice_progress="@{roomProps.restartIceInProgress}"
+            bind:edias_restart_ice_ani="@{roomProps.restartIceAnimation}" />
+
 
         <org.mediasoup.droid.demo.view.MeView
             android:id="@+id/me"
-            android:layout_width="260dp"
+            android:layout_width="220dp"
             android:layout_height="200dp"
-            android:layout_alignParentBottom="true" />
+            android:layout_alignParentBottom="true"
+            android:layout_marginLeft="10dp"
+            android:layout_marginBottom="10dp" />
 
     </RelativeLayout>
 </layout>

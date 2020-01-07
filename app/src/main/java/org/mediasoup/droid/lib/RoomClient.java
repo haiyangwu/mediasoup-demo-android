@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.preference.PreferenceManager;
+import android.text.TextUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
@@ -28,6 +29,7 @@ import org.protoojs.droid.ProtooException;
 import org.webrtc.AudioTrack;
 import org.webrtc.CameraVideoCapturer;
 import org.webrtc.VideoTrack;
+import org.webrtc.voiceengine.WebRtcAudioTrack;
 
 import io.reactivex.disposables.CompositeDisposable;
 
@@ -245,7 +247,7 @@ public class RoomClient extends RoomMessageHandler {
     Logger.d(TAG, "disableAudioOnly()");
     mStore.setAudioOnlyInProgress(true);
 
-    if (mCamProducer != null && mOptions.isProduce()) {
+    if (mCamProducer == null && mOptions.isProduce()) {
       enableCam();
     }
     mWorkHandler.post(
@@ -264,15 +266,15 @@ public class RoomClient extends RoomMessageHandler {
   @Async
   public void muteAudio() {
     Logger.d(TAG, "muteAudio()");
-    // TODO(feature): Mute/unmute participants\' audio
     mStore.setAudioMutedState(true);
+    WebRtcAudioTrack.setSpeakerMute(true);
   }
 
   @Async
   public void unmuteAudio() {
     Logger.d(TAG, "unmuteAudio()");
-    // TODO(feature): Mute/unmute participants\' audio
     mStore.setAudioMutedState(false);
+    WebRtcAudioTrack.setSpeakerMute(false);
   }
 
   @Async
@@ -690,13 +692,17 @@ public class RoomClient extends RoomMessageHandler {
         boolean canSendMic = mMediasoupDevice.canProduce("audio");
         boolean canSendCam = mMediasoupDevice.canProduce("video");
         mStore.setMediaCapabilities(canSendMic, canSendCam);
-        enableMicImpl();
-        enableCamImpl();
+        mMainHandler.post(this::enableMic);
+        mMainHandler.post(this::enableCam);
       }
     } catch (Exception e) {
       e.printStackTrace();
       logError("joinRoom() failed:", e);
-      mStore.addNotify("error", "Could not join the room: " + e.getMessage());
+      if (TextUtils.isEmpty(e.getMessage())) {
+        mStore.addNotify("error", "Could not join the room, internal error");
+      } else {
+        mStore.addNotify("error", "Could not join the room: " + e.getMessage());
+      }
       mMainHandler.post(this::close);
     }
   }
@@ -1070,7 +1076,7 @@ public class RoomClient extends RoomMessageHandler {
     }
 
     try {
-      mProtoo.syncRequest("pause" + "", req -> jsonPut(req, "consumerId", consumer.getId()));
+      mProtoo.syncRequest("pauseConsumer", req -> jsonPut(req, "consumerId", consumer.getId()));
       consumer.pause();
       mStore.setConsumerPaused(consumer.getId(), "local");
     } catch (ProtooException e) {

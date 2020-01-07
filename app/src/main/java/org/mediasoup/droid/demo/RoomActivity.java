@@ -33,6 +33,7 @@ import org.mediasoup.droid.lib.PeerConnectionUtils;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.RoomOptions;
 import org.mediasoup.droid.lib.lv.RoomStore;
+import org.mediasoup.droid.lib.model.Me;
 import org.mediasoup.droid.lib.model.Notify;
 import org.mediasoup.droid.lib.model.Peer;
 
@@ -130,6 +131,30 @@ public class RoomActivity extends AppCompatActivity {
     MeProps meProps = ViewModelProviders.of(this, factory).get(MeProps.class);
     meProps.connect(this);
     mBinding.me.setProps(meProps, mRoomClient);
+
+    mBinding.hideVideos.setOnClickListener(
+        v -> {
+          Me me = meProps.getMe().get();
+          if (me != null) {
+            if (me.isAudioOnly()) {
+              mRoomClient.disableAudioOnly();
+            } else {
+              mRoomClient.enableAudioOnly();
+            }
+          }
+        });
+    mBinding.muteAudio.setOnClickListener(
+        v -> {
+          Me me = meProps.getMe().get();
+          if (me != null) {
+            if (me.isAudioMuted()) {
+              mRoomClient.unmuteAudio();
+            } else {
+              mRoomClient.muteAudio();
+            }
+          }
+        });
+    mBinding.restartIce.setOnClickListener(v -> mRoomClient.restartIce());
 
     // Peers.
     mPeerAdapter = new PeerAdapter(mRoomStore, this, mRoomClient);
