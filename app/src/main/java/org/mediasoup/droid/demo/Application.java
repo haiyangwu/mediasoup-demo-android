@@ -9,7 +9,7 @@ public class Application extends android.app.Application {
   public void onCreate() {
     super.onCreate();
 
-    Logger.setLogLevel(Logger.LogLevel.LOG_TRACE);
+    Logger.setLogLevel(Logger.LogLevel.LOG_DEBUG);
     Logger.setDefaultHandler();
     MediasoupClient.initialize(getApplicationContext());
   }

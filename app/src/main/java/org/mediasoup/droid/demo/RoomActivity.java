@@ -24,6 +24,7 @@ import com.nabinbhandari.android.permissions.PermissionHandler;
 import com.nabinbhandari.android.permissions.Permissions;
 
 import org.mediasoup.droid.Logger;
+import org.mediasoup.droid.MediasoupClient;
 import org.mediasoup.droid.demo.adapter.PeerAdapter;
 import org.mediasoup.droid.demo.databinding.ActivityRoomBinding;
 import org.mediasoup.droid.demo.vm.EdiasProps;
@@ -106,6 +107,9 @@ public class RoomActivity extends AppCompatActivity {
     // Device config.
     String camera = preferences.getString("camera", "front");
     PeerConnectionUtils.setPreferCameraFace(camera);
+
+    // Display version number.
+    ((TextView)findViewById(R.id.version)).setText(String.valueOf(MediasoupClient.version()));
   }
 
   private void initRoomClient() {
