@@ -7,8 +7,8 @@ android {
         applicationId "org.mediasoup.droid.demo"
         minSdkVersion 18
         targetSdkVersion 28
-        versionCode 2
-        versionName "1.1"
+        versionCode 3
+        versionName "3.0.8-beta-2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
@@ -49,7 +49,7 @@ dependencies {
 
     implementation 'com.nabinbhandari.android:permissions:3.8'
     implementation 'org.protoojs.droid:protoo-client:4.0.3'
-    implementation 'org.mediasoup.droid:mediasoup-client:3.0.8-beta-1'
+    implementation 'org.mediasoup.droid:mediasoup-client:3.0.8-beta-2'
 
     implementation 'com.squareup.okhttp3:okhttp:4.3.0'
     implementation("com.squareup.okhttp3:logging-interceptor:4.3.0")
