@@ -666,7 +666,7 @@ public class RoomClient extends RoomMessageHandler {
     try {
       mMediasoupDevice = new Device();
       String routerRtpCapabilities = mProtoo.syncRequest("getRouterRtpCapabilities");
-      mMediasoupDevice.load(routerRtpCapabilities);
+      mMediasoupDevice.load(routerRtpCapabilities, null);
       String rtpCapabilities = mMediasoupDevice.getRtpCapabilities();
 
       // Create mediasoup Transport for sending (unless we don't want to produce).
@@ -755,6 +755,7 @@ public class RoomClient extends RoomMessageHandler {
                 }
               },
               mLocalAudioTrack,
+              null,
               null,
               null);
       mStore.addProducer(mMicProducer);
@@ -853,6 +854,7 @@ public class RoomClient extends RoomMessageHandler {
               },
               mLocalVideoTrack,
               null,
+              null,
               null);
       mStore.addProducer(mCamProducer);
     } catch (MediasoupException e) {
@@ -907,7 +909,7 @@ public class RoomClient extends RoomMessageHandler {
 
     mSendTransport =
         mMediasoupDevice.createSendTransport(
-            sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters);
+            sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters, null);
   }
 
   @WorkerThread
@@ -959,6 +961,26 @@ public class RoomClient extends RoomMessageHandler {
                   });
           Logger.d(listenerTAG, "producerId: " + producerId);
           return producerId;
+        }
+
+        @Override
+        public String onProduceData(
+                Transport transport, String sctpStreamParameters, String label, String protocol, String appData) {
+          if (mClosed) {
+            return "";
+          }
+          Logger.d(listenerTAG, "onProduceData() ");
+          String producerDataId =
+                  fetchProduceDataId(
+                          req -> {
+                            jsonPut(req, "transportId", transport.getId());
+                            jsonPut(req, "sctpStreamParameters", toJsonObject(sctpStreamParameters));
+                            jsonPut(req, "label", label);
+                            jsonPut(req, "protocol", protocol);
+                            jsonPut(req, "appData", appData);
+                          });
+          Logger.d(listenerTAG, "producerDataId: " + producerDataId);
+          return producerDataId;
         }
 
         @Override
@@ -1020,6 +1042,18 @@ public class RoomClient extends RoomMessageHandler {
     Logger.d(TAG, "fetchProduceId:()");
     try {
       String response = mProtoo.syncRequest("produce", generator);
+      return new JSONObject(response).optString("id");
+    } catch (ProtooException | JSONException e) {
+      e.printStackTrace();
+      logError("send produce request failed", e);
+      return "";
+    }
+  }
+
+  private String fetchProduceDataId(Protoo.RequestGenerator generator) {
+    Logger.d(TAG, "fetchProduceDataId:()");
+    try {
+      String response = mProtoo.syncRequest("produceData", generator);
       return new JSONObject(response).optString("id");
     } catch (ProtooException | JSONException e) {
       e.printStackTrace();

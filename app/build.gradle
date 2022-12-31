@@ -49,7 +49,8 @@ dependencies {
 
     implementation 'com.nabinbhandari.android:permissions:3.8'
     implementation 'org.protoojs.droid:protoo-client:4.0.3'
-    implementation 'org.mediasoup.droid:mediasoup-client:3.0.8-beta-3'
+
+    implementation 'io.github.haiyangwu:mediasoup-client:3.4.0-beta'
 
     implementation 'com.squareup.okhttp3:okhttp:4.3.0'
     implementation("com.squareup.okhttp3:logging-interceptor:4.3.0")
