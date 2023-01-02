@@ -55,6 +55,11 @@
             app:key="consume"
             app:title="@string/consume" />
 
+        <SwitchPreferenceCompat
+            app:defaultValue="true"
+            app:key="dataChannel"
+            app:title="@string/dataChannel" />
+
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/device_header">

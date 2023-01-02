@@ -7,6 +7,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
+import org.mediasoup.droid.DataConsumer;
 import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.lib.lv.RoomStore;
 import org.protoojs.droid.Message;
@@ -22,6 +23,7 @@ class RoomMessageHandler {
   @NonNull final RoomStore mStore;
   // mediasoup Consumers.
   @NonNull final Map<String, ConsumerHolder> mConsumers;
+  @NonNull final Map<String, DataConsumerHolder> mDataConsumers;
 
   static class ConsumerHolder {
     @NonNull final String peerId;
@@ -33,9 +35,20 @@ class RoomMessageHandler {
     }
   }
 
+  static class DataConsumerHolder {
+    @NonNull final String peerId;
+    @NonNull final DataConsumer mDataConsumer;
+
+    DataConsumerHolder(@NonNull String peerId, @NonNull DataConsumer dataConsumer) {
+      this.peerId = peerId;
+      mDataConsumer = dataConsumer;
+    }
+  }
+
   RoomMessageHandler(@NonNull RoomStore store) {
     this.mStore = store;
     this.mConsumers = new ConcurrentHashMap<>();
+    this.mDataConsumers = new ConcurrentHashMap<>();
   }
 
   @WorkerThread
@@ -130,8 +143,14 @@ class RoomMessageHandler {
         }
       case "dataConsumerClosed":
         {
-          // TODO(HaiyangWu); support data consumer
-          // String dataConsumerId = data.getString("dataConsumerId");
+          String dataConsumerId = data.getString("dataConsumerId");
+          DataConsumerHolder dataConsumer = mDataConsumers.get(dataConsumerId);
+          if (dataConsumer == null) {
+            break;
+          }
+
+          dataConsumer.mDataConsumer.close();
+          mStore.removeDataConsumer(dataConsumer.peerId, dataConsumer.mDataConsumer.getId());
           break;
         }
       case "activeSpeaker":

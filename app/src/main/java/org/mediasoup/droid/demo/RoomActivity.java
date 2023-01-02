@@ -1,5 +1,8 @@
 package org.mediasoup.droid.demo;
 
+import static org.mediasoup.droid.demo.utils.ClipboardCopy.clipboardCopy;
+import static org.mediasoup.droid.lib.Utils.getRandomString;
+
 import android.Manifest;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -7,6 +10,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -39,9 +43,6 @@ import org.mediasoup.droid.lib.model.Notify;
 import org.mediasoup.droid.lib.model.Peer;
 
 import java.util.List;
-
-import static org.mediasoup.droid.demo.utils.ClipboardCopy.clipboardCopy;
-import static org.mediasoup.droid.lib.Utils.getRandomString;
 
 public class RoomActivity extends AppCompatActivity {
 
@@ -103,6 +104,7 @@ public class RoomActivity extends AppCompatActivity {
     mOptions.setProduce(preferences.getBoolean("produce", true));
     mOptions.setConsume(preferences.getBoolean("consume", true));
     mOptions.setForceTcp(preferences.getBoolean("forceTcp", false));
+    mOptions.setUseDataChannel(preferences.getBoolean("dataChannel", true));
 
     // Device config.
     String camera = preferences.getString("camera", "front");
@@ -191,11 +193,33 @@ public class RoomActivity extends AppCompatActivity {
             TextView toastMessage = toast.getView().findViewById(android.R.id.message);
             toastMessage.setTextColor(Color.RED);
             toast.show();
+          } else if ("message".equals(notify.getType())) {
+            Toast.makeText(this, notify.getTitle() + "\n" + notify.getText(), notify.getTimeout())
+                .show();
           } else {
             Toast.makeText(this, notify.getText(), notify.getTimeout()).show();
           }
         };
     mRoomStore.getNotify().observe(this, notifyObserver);
+
+    // Chat
+    mBinding.chatInput.setImeActionLabel("Send", KeyEvent.KEYCODE_ENTER);
+    mBinding.chatInput.setOnKeyListener(
+        (v, keyCode, event) -> {
+          String message = mBinding.chatInput.getText().toString().trim();
+          if(TextUtils.isEmpty(message)){
+            return false;
+          }
+          if (keyCode == KeyEvent.KEYCODE_ENTER) {
+            if (message.matches("^@bot (.*)")) {
+              mRoomClient.sendBotMessage(message);
+            } else {
+              mRoomClient.sendChatMessage(message);
+            }
+            mBinding.chatInput.getText().clear();
+          }
+          return true;
+        });
   }
 
   private PermissionHandler permissionHandler =

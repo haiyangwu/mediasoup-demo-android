@@ -1,5 +1,8 @@
 package org.mediasoup.droid.lib;
 
+import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
+import static org.mediasoup.droid.lib.JsonUtils.toJsonObject;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
@@ -15,6 +18,8 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
+import org.mediasoup.droid.DataConsumer;
+import org.mediasoup.droid.DataProducer;
 import org.mediasoup.droid.Device;
 import org.mediasoup.droid.Logger;
 import org.mediasoup.droid.MediasoupException;
@@ -23,17 +28,19 @@ import org.mediasoup.droid.RecvTransport;
 import org.mediasoup.droid.SendTransport;
 import org.mediasoup.droid.Transport;
 import org.mediasoup.droid.lib.lv.RoomStore;
+import org.mediasoup.droid.lib.model.Peer;
 import org.mediasoup.droid.lib.socket.WebSocketTransport;
 import org.protoojs.droid.Message;
 import org.protoojs.droid.ProtooException;
 import org.webrtc.AudioTrack;
 import org.webrtc.CameraVideoCapturer;
+import org.webrtc.DataChannel;
 import org.webrtc.VideoTrack;
 
-import io.reactivex.disposables.CompositeDisposable;
+import java.nio.ByteBuffer;
+import java.util.List;
 
-import static org.mediasoup.droid.lib.JsonUtils.jsonPut;
-import static org.mediasoup.droid.lib.JsonUtils.toJsonObject;
+import io.reactivex.disposables.CompositeDisposable;
 
 public class RoomClient extends RoomMessageHandler {
 
@@ -58,8 +65,6 @@ public class RoomClient extends RoomMessageHandler {
   private final @NonNull RoomOptions mOptions;
   // Display name.
   private String mDisplayName;
-  // TODO(Haiyangwu):Next expected dataChannel test number.
-  private long mNextDataChannelTestNumber;
   // Protoo URL.
   private String mProtooUrl;
   // mProtoo-client Protoo instance.
@@ -80,10 +85,10 @@ public class RoomClient extends RoomMessageHandler {
   private Producer mCamProducer;
   // TODO(Haiyangwu): Local share mediasoup Producer.
   private Producer mShareProducer;
-  // TODO(Haiyangwu): Local chat DataProducer.
-  private Producer mChatDataProducer;
-  // TODO(Haiyangwu): Local bot DataProducer.
-  private Producer mBotDataProducer;
+  // Local chat DataProducer.
+  private DataProducer mChatDataProducer;
+  // Local bot DataProducer.
+  private DataProducer mBotDataProducer;
   // jobs worker handler.
   private Handler mWorkHandler;
   // main looper handler.
@@ -359,25 +364,139 @@ public class RoomClient extends RoomMessageHandler {
   @Async
   public void enableChatDataProducer() {
     Logger.d(TAG, "enableChatDataProducer()");
-    // TODO(feature): data channel
+    if (!mOptions.isUseDataChannel()) {
+      return;
+    }
+    mWorkHandler.post(
+        () -> {
+          if (mChatDataProducer != null) {
+            return;
+          }
+          try {
+            DataProducer.Listener listener =
+                new DataProducer.Listener() {
+                  @Override
+                  public void onOpen(DataProducer dataProducer) {
+                    Logger.d(TAG, "chat DataProducer \"open\" event");
+                  }
+
+                  @Override
+                  public void onClose(DataProducer dataProducer) {
+                    Logger.e(TAG, "chat DataProducer \"close\" event");
+                    mChatDataProducer = null;
+                    mStore.addNotify("error", "Chat DataProducer closed");
+                  }
+
+                  @Override
+                  public void onBufferedAmountChange(
+                      DataProducer dataProducer, long sentDataSize) {}
+
+                  @Override
+                  public void onTransportClose(DataProducer dataProducer) {
+                    mChatDataProducer = null;
+                  }
+                };
+            mChatDataProducer =
+                mSendTransport.produceData(
+                    listener, "chat", "low", false, 1, 0, "{\"info\":\"my-chat-DataProducer\"}");
+            mStore.addDataProducer(mChatDataProducer);
+          } catch (Exception e) {
+            Logger.e(TAG, "enableChatDataProducer() | failed:", e);
+            mStore.addNotify("error", "Error enabling chat DataProducer: " + e.getMessage());
+          }
+        });
   }
 
   @Async
   public void enableBotDataProducer() {
     Logger.d(TAG, "enableBotDataProducer()");
-    // TODO(feature): data channel
+    if (!mOptions.isUseDataChannel()) {
+      return;
+    }
+    mWorkHandler.post(
+        () -> {
+          if (mBotDataProducer != null) {
+            return;
+          }
+          try {
+            DataProducer.Listener listener =
+                new DataProducer.Listener() {
+                  @Override
+                  public void onOpen(DataProducer dataProducer) {
+                    Logger.d(TAG, "bot DataProducer \"open\" event");
+                  }
+
+                  @Override
+                  public void onClose(DataProducer dataProducer) {
+                    Logger.e(TAG, "bot DataProducer \"close\" event");
+                    mBotDataProducer = null;
+                    mStore.addNotify("error", "Bot DataProducer closed");
+                  }
+
+                  @Override
+                  public void onBufferedAmountChange(
+                      DataProducer dataProducer, long sentDataSize) {}
+
+                  @Override
+                  public void onTransportClose(DataProducer dataProducer) {
+                    mBotDataProducer = null;
+                  }
+                };
+            mBotDataProducer =
+                mSendTransport.produceData(
+                    listener,
+                    "bot",
+                    "medium",
+                    false,
+                    -1,
+                    2000,
+                    "{\"info\":\"my-bot-DataProducer\"}");
+            mStore.addDataProducer(mBotDataProducer);
+          } catch (Exception e) {
+            Logger.e(TAG, "enableBotDataProducer() | failed:", e);
+            mStore.addNotify("error", "Error enabling bot DataProducer: " + e.getMessage());
+          }
+        });
   }
 
   @Async
   public void sendChatMessage(String txt) {
     Logger.d(TAG, "sendChatMessage()");
-    // TODO(feature): data channel
+    mWorkHandler.post(
+        () -> {
+          if (mChatDataProducer == null) {
+            mStore.addNotify("error", "No chat DataProduce");
+            return;
+          }
+
+          try {
+            mChatDataProducer.send(
+                new DataChannel.Buffer(ByteBuffer.wrap(txt.getBytes("UTF-8")), false));
+          } catch (Exception e) {
+            Logger.e(TAG, "chat DataProducer.send() failed:", e);
+            mStore.addNotify("error", "chat DataProducer.send() failed: " + e.getMessage());
+          }
+        });
   }
 
   @Async
   public void sendBotMessage(String txt) {
     Logger.d(TAG, "sendBotMessage()");
-    // TODO(feature): data channel
+    mWorkHandler.post(
+        () -> {
+          if (mBotDataProducer == null) {
+            mStore.addNotify("error", "No bot DataProduce");
+            return;
+          }
+
+          try {
+            mBotDataProducer.send(
+                new DataChannel.Buffer(ByteBuffer.wrap(txt.getBytes("UTF-8")), false));
+          } catch (Exception e) {
+            Logger.e(TAG, "bot DataProducer.send() failed:", e);
+            mStore.addNotify("error", "bot DataProducer.send() failed: " + e.getMessage());
+          }
+        });
   }
 
   @Async
@@ -679,8 +798,10 @@ public class RoomClient extends RoomMessageHandler {
         createRecvTransport();
       }
 
+      final String sctpCapabilities =
+          mOptions.isUseDataChannel() ? mMediasoupDevice.getSctpCapabilities() : "";
+
       // Join now into the room.
-      // TODO(HaiyangWu): Don't send our RTP capabilities if we don't want to consume.
       String joinResponse =
           mProtoo.syncRequest(
               "join",
@@ -688,8 +809,7 @@ public class RoomClient extends RoomMessageHandler {
                 jsonPut(req, "displayName", mDisplayName);
                 jsonPut(req, "device", mOptions.getDevice().toJSONObject());
                 jsonPut(req, "rtpCapabilities", toJsonObject(rtpCapabilities));
-                // TODO (HaiyangWu): add sctpCapabilities
-                jsonPut(req, "sctpCapabilities", "");
+                jsonPut(req, "sctpCapabilities", sctpCapabilities);
               });
 
       mStore.setRoomState(ConnectionState.CONNECTED);
@@ -888,6 +1008,8 @@ public class RoomClient extends RoomMessageHandler {
   @WorkerThread
   private void createSendTransport() throws ProtooException, JSONException, MediasoupException {
     Logger.d(TAG, "createSendTransport()");
+    final String sctpCapabilities =
+        mOptions.isUseDataChannel() ? mMediasoupDevice.getSctpCapabilities() : "";
     String res =
         mProtoo.syncRequest(
             "createWebRtcTransport",
@@ -895,8 +1017,7 @@ public class RoomClient extends RoomMessageHandler {
               jsonPut(req, "forceTcp", mOptions.isForceTcp());
               jsonPut(req, "producing", true);
               jsonPut(req, "consuming", false);
-              // TODO: sctpCapabilities
-              jsonPut(req, "sctpCapabilities", "");
+              jsonPut(req, "sctpCapabilities", sctpCapabilities);
             }));
     JSONObject info = new JSONObject(res);
 
@@ -909,13 +1030,20 @@ public class RoomClient extends RoomMessageHandler {
 
     mSendTransport =
         mMediasoupDevice.createSendTransport(
-            sendTransportListener, id, iceParameters, iceCandidates, dtlsParameters, null);
+            sendTransportListener,
+            id,
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters);
   }
 
   @WorkerThread
   private void createRecvTransport() throws ProtooException, JSONException, MediasoupException {
     Logger.d(TAG, "createRecvTransport()");
 
+    final String sctpCapabilities =
+        mOptions.isUseDataChannel() ? mMediasoupDevice.getSctpCapabilities() : "";
     String res =
         mProtoo.syncRequest(
             "createWebRtcTransport",
@@ -923,8 +1051,7 @@ public class RoomClient extends RoomMessageHandler {
               jsonPut(req, "forceTcp", mOptions.isForceTcp());
               jsonPut(req, "producing", false);
               jsonPut(req, "consuming", true);
-              // TODO (HaiyangWu): add sctpCapabilities
-              jsonPut(req, "sctpCapabilities", "");
+              jsonPut(req, "sctpCapabilities", sctpCapabilities);
             });
     JSONObject info = new JSONObject(res);
     Logger.d(TAG, "device#createRecvTransport() " + info);
@@ -936,7 +1063,12 @@ public class RoomClient extends RoomMessageHandler {
 
     mRecvTransport =
         mMediasoupDevice.createRecvTransport(
-            recvTransportListener, id, iceParameters, iceCandidates, dtlsParameters, null);
+            recvTransportListener,
+            id,
+            iceParameters,
+            iceCandidates,
+            dtlsParameters,
+            sctpParameters);
   }
 
   private SendTransport.Listener sendTransportListener =
@@ -977,7 +1109,7 @@ public class RoomClient extends RoomMessageHandler {
                             jsonPut(req, "sctpStreamParameters", toJsonObject(sctpStreamParameters));
                             jsonPut(req, "label", label);
                             jsonPut(req, "protocol", protocol);
-                            jsonPut(req, "appData", appData);
+                            jsonPut(req, "appData", toJsonObject(appData));
                           });
           Logger.d(listenerTAG, "producerDataId: " + producerDataId);
           return producerDataId;
@@ -1005,6 +1137,12 @@ public class RoomClient extends RoomMessageHandler {
         @Override
         public void onConnectionStateChange(Transport transport, String connectionState) {
           Logger.d(listenerTAG, "onConnectionStateChange: " + connectionState);
+          if ("connected".equals(connectionState)) {
+              mMainHandler.post(()-> {
+                 enableChatDataProducer();
+                 enableBotDataProducer();
+              });
+          }
         }
       };
 
@@ -1113,8 +1251,96 @@ public class RoomClient extends RoomMessageHandler {
   }
 
   private void onNewDataConsumer(Message.Request request, Protoo.ServerRequestHandler handler) {
-    handler.reject(403, "I do not want to data consume");
-    // TODO(HaiyangWu): support data consume
+    if (!mOptions.isConsume()) {
+      handler.reject(403, "I do not want to consume");
+      return;
+    }
+    if (!mOptions.isUseDataChannel()) {
+      handler.reject(403, "I do not want DataChannels");
+    }
+
+    try {
+      JSONObject data = request.getData();
+      String peerId = data.optString("peerId");
+      String dataProducerId = data.optString("dataProducerId");
+      String id = data.optString("id");
+      JSONObject sctpStreamParameters = data.optJSONObject("sctpStreamParameters");
+      long streamId = sctpStreamParameters.optLong("streamId");
+      String label = data.optString("label");
+      String protocol = data.optString("protocol");
+      String appData = data.optString("appData");
+
+      DataConsumer.Listener listener =
+          new DataConsumer.Listener() {
+            @Override
+            public void OnConnecting(DataConsumer dataConsumer) {}
+
+            @Override
+            public void OnOpen(DataConsumer dataConsumer) {
+              Logger.d(TAG, "DataConsumer \"open\" event");
+            }
+
+            @Override
+            public void OnClosing(DataConsumer dataConsumer) {}
+
+            @Override
+            public void OnClose(DataConsumer dataConsumer) {
+              Logger.w(TAG, "DataConsumer \"close\" event");
+              mDataConsumers.remove(dataConsumer.getId());
+            }
+
+            @Override
+            public void OnMessage(DataConsumer dataConsumer, DataChannel.Buffer buffer) {
+              try {
+                JSONObject sctp = new JSONObject(dataConsumer.getSctpStreamParameters());
+                Logger.w(
+                    TAG,
+                    "DataConsumer \"message\" event [streamId" + sctp.optInt("streamId") + "]");
+
+                byte[] data = new byte[buffer.data.remaining()];
+                buffer.data.get(data);
+                String message = new String(data, "UTF-8");
+                if ("chat".equals(dataConsumer.getLabel())) {
+                  List<Peer> peerList = mStore.getPeers().getValue().getAllPeers();
+                  Peer sendingPeer = null;
+                  for (Peer item : peerList) {
+                    if (item.getDataConsumers().contains(dataConsumer.getId())) {
+                      sendingPeer = item;
+                      break;
+                    }
+                  }
+                  if (sendingPeer == null) {
+                    Logger.w(TAG, "DataConsumer \"message\" from unknown peer");
+                    return;
+                  }
+                  mStore.addNotifyMessage(sendingPeer.getDisplayName() + " says:", message);
+                } else if ("bot".equals(dataConsumer.getLabel())) {
+                  mStore.addNotifyMessage("Message from Bot:", message);
+                }
+              } catch (Exception e) {
+                e.printStackTrace();
+              }
+            }
+
+            @Override
+            public void OnTransportClose(DataConsumer dataConsumer) {
+              mDataConsumers.remove(dataConsumer.getId());
+            }
+          };
+      DataConsumer dataConsumer =
+          mRecvTransport.consumeData(
+              listener, id, dataProducerId, streamId, label, protocol, appData);
+      mDataConsumers.put(dataConsumer.getId(), new DataConsumerHolder(peerId, dataConsumer));
+      mStore.addDataConsumer(peerId, dataConsumer);
+
+      // We are ready. Answer the protoo request.
+      handler.accept();
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      logError("\"newDataConsumer\" request failed:", e);
+      mStore.addNotify("error", "Error creating a DataConsumer: " + e.getMessage());
+    }
   }
 
   @WorkerThread

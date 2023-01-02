@@ -7,9 +7,12 @@ import androidx.lifecycle.MutableLiveData;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
+import org.mediasoup.droid.DataConsumer;
+import org.mediasoup.droid.DataProducer;
 import org.mediasoup.droid.Producer;
 import org.mediasoup.droid.lib.RoomClient;
 import org.mediasoup.droid.lib.model.Consumers;
+import org.mediasoup.droid.lib.model.DataConsumers;
 import org.mediasoup.droid.lib.model.DeviceInfo;
 import org.mediasoup.droid.lib.model.Me;
 import org.mediasoup.droid.lib.model.Notify;
@@ -48,6 +51,11 @@ public class RoomStore {
   // mediasoup-demo/app/lib/redux/reducers/consumers.js
   private SupplierMutableLiveData<Consumers> consumers =
       new SupplierMutableLiveData<>(Consumers::new);
+
+  // dataConsumers
+  // mediasoup-demo/app/lib/redux/reducers/dataConsumers.js
+  private SupplierMutableLiveData<DataConsumers> dataConsumers =
+          new SupplierMutableLiveData<>(DataConsumers::new);
 
   // notify
   // mediasoup-demo/app/lib/redux/reducers/notifications.js
@@ -149,12 +157,10 @@ public class RoomStore {
     producers.postValue(producers -> producers.setProducerScore(producerId, score));
   }
 
-  public void addDataProducer(Object dataProducer) {
-    // TODO(HaiyangWU): support data consumer. Note, new DataConsumer.java
+  public void addDataProducer(DataProducer dataProducer) {
   }
 
   public void removeDataProducer(String dataProducerId) {
-    // TODO(HaiyangWU): support data consumer.
   }
 
   public void addPeer(String peerId, JSONObject peerInfo) {
@@ -205,12 +211,14 @@ public class RoomStore {
     consumers.postValue(consumers -> consumers.setConsumerScore(consumerId, score));
   }
 
-  public void addDataConsumer(String peerId, Object dataConsumer) {
-    // TODO(HaiyangWU): support data consumer. Note, new DataConsumer.java
+  public void addDataConsumer(String peerId, DataConsumer dataConsumer) {
+    dataConsumers.postValue(dataConsumers -> dataConsumers.addDataConsumer(dataConsumer));
+    peers.postValue(peers -> peers.addDataConsumer(peerId, dataConsumer));
   }
 
   public void removeDataConsumer(String peerId, String dataConsumerId) {
-    // TODO(HaiyangWU): support data consumer.
+    dataConsumers.postValue(dataConsumers -> dataConsumers.removeDataConsumer(dataConsumerId));
+    peers.postValue(peers -> peers.removeDataConsumer(peerId, dataConsumerId));
   }
 
   public void addNotify(String text) {
@@ -223,6 +231,10 @@ public class RoomStore {
 
   public void addNotify(String type, String text) {
     notify.postValue(new Notify(type, text));
+  }
+
+  public void addNotifyMessage(String title, String text) {
+    notify.postValue(new Notify("message", title, text, 5000));
   }
 
   public void addNotify(String text, Throwable throwable) {

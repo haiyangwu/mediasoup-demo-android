@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 
 import org.json.JSONObject;
 import org.mediasoup.droid.Consumer;
+import org.mediasoup.droid.DataConsumer;
 import org.mediasoup.droid.Logger;
 
 import java.util.ArrayList;
@@ -56,6 +57,25 @@ public class Peers {
     }
 
     peer.getConsumers().remove(consumerId);
+  }
+
+  public void addDataConsumer(String peerId, DataConsumer consumer) {
+    Peer peer = getPeer(peerId);
+    if (peer == null) {
+      Logger.e(TAG, "no Peer found for new Data Consumer");
+      return;
+    }
+
+    peer.getDataConsumers().add(consumer.getId());
+  }
+
+  public void removeDataConsumer(String peerId, String consumerId) {
+    Peer peer = getPeer(peerId);
+    if (peer == null) {
+      return;
+    }
+
+    peer.getDataConsumers().remove(consumerId);
   }
 
   public Peer getPeer(String peerId) {

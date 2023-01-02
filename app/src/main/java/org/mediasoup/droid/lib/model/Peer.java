@@ -14,7 +14,8 @@ public class Peer extends Info {
   private String mDisplayName;
   private DeviceInfo mDevice;
 
-  private Set<String> consumers;
+  private Set<String> mConsumers;
+  private Set<String> mDataConsumers;
 
   public Peer(@NonNull JSONObject info) {
     mId = info.optString("id");
@@ -29,7 +30,8 @@ public class Peer extends Info {
     } else {
       mDevice = DeviceInfo.unknownDevice();
     }
-    consumers = new HashSet<>();
+    mConsumers = new HashSet<>();
+    mDataConsumers = new HashSet<>();
   }
 
   @Override
@@ -56,6 +58,9 @@ public class Peer extends Info {
   }
 
   public Set<String> getConsumers() {
-    return consumers;
+    return mConsumers;
+  }
+  public Set<String> getDataConsumers() {
+    return mDataConsumers;
   }
 }

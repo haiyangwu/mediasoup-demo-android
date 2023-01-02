@@ -94,6 +94,16 @@
             android:layout_height="200dp"
             android:layout_alignParentBottom="true"
             android:layout_marginLeft="10dp"
+            android:layout_marginBottom="68dp"/>
+
+        <EditText
+            android:inputType="text"
+            android:imeOptions="actionSend"
+            android:id="@+id/chat_input"
+            android:layout_width="220dp"
+            android:layout_height="48dp"
+            android:layout_alignParentBottom="true"
+            android:layout_marginLeft="10dp"
             android:layout_marginBottom="10dp" />
 
         <TextView
